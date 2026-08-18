@@ -1,0 +1,63 @@
+# ==========================================
+# CyberShield Backend Requirements
+# ==========================================
+
+# ---------- FastAPI ----------
+fastapi>=0.116.0
+uvicorn[standard]>=0.35.0
+starlette>=0.47.0
+
+# ---------- Configuration ----------
+python-dotenv>=1.1.0
+pydantic>=2.11.0
+pydantic-settings>=2.10.0
+
+# ---------- Database ----------
+sqlalchemy>=2.0.43
+alembic>=1.16.4
+psycopg[binary]>=3.2.9
+
+# ---------- Authentication ----------
+python-jose[cryptography]>=3.5.0
+passlib[bcrypt]>=1.7.4
+bcrypt>=4.3.0
+email-validator>=2.2.0
+
+# ---------- File Upload ----------
+python-multipart>=0.0.20
+aiofiles>=24.1.0
+
+# ---------- HTTP Client ----------
+httpx>=0.28.1
+
+# ---------- Malware Analysis ----------
+pefile>=2024.8.26
+yara-python>=4.5.4
+python-magic>=0.4.27
+oletools>=0.60.2
+
+# ---------- Cryptography ----------
+cryptography>=45.0.6
+
+# ---------- Data Processing ----------
+numpy>=2.3.2
+pandas>=2.3.1
+
+# ---------- Logging ----------
+loguru>=0.7.3
+
+# ---------- Background Tasks ----------
+celery>=5.5.3
+redis>=6.4.0
+
+# ---------- Testing ----------
+pytest>=8.4.1
+pytest-asyncio>=1.1.0
+
+# ---------- Code Quality ----------
+black>=25.1.0
+flake8>=7.3.0
+isort>=6.0.1
+
+# ---------- Terminal ----------
+rich>=14.1.0
