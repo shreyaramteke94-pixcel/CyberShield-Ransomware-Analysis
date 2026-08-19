@@ -4,12 +4,20 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.api.upload import router as upload_router
 
+from app.database.database import Base, engine
+
+# Import models so SQLAlchemy can discover them
+from app.models.sample import Sample
+
+# Create database tables
+Base.metadata.create_all(bind=engine)
+
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="Enterprise Ransomware Analysis Platform",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
 )
 
 
@@ -19,7 +27,7 @@ async def root():
         content={
             "application": settings.APP_NAME,
             "version": settings.APP_VERSION,
-            "status": "running"
+            "status": "running",
         }
     )
 
@@ -30,10 +38,9 @@ async def health():
         content={
             "status": "healthy",
             "service": settings.APP_NAME,
-            "version": settings.APP_VERSION
+            "version": settings.APP_VERSION,
         }
     )
 
 
-# Register API Routers
 app.include_router(upload_router)
