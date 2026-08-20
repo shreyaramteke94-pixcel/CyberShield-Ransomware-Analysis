@@ -34,10 +34,28 @@ class AnalysisRepository:
     def get_by_sample_id(
         db: Session,
         sample_id: str,
-    ):
+    ) -> Analysis | None:
 
         return (
             db.query(Analysis)
             .filter(Analysis.sample_id == sample_id)
             .first()
         )
+
+    @staticmethod
+    def update(
+        db: Session,
+        analysis: Analysis,
+        mime_type: str,
+        entropy: float,
+        pe_analysis: dict | None,
+    ) -> Analysis:
+
+        analysis.mime_type = mime_type
+        analysis.entropy = entropy
+        analysis.pe_analysis = pe_analysis
+
+        db.commit()
+        db.refresh(analysis)
+
+        return analysis
