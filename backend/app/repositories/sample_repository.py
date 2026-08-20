@@ -34,7 +34,10 @@ class SampleRepository:
         return sample
 
     @staticmethod
-    def get_by_id(db: Session, sample_id: str):
+    def get_by_id(
+        db: Session,
+        sample_id: str,
+    ):
 
         return (
             db.query(Sample)
@@ -43,7 +46,9 @@ class SampleRepository:
         )
 
     @staticmethod
-    def get_all(db: Session):
+    def get_all(
+        db: Session,
+    ):
 
         return (
             db.query(Sample)
@@ -64,3 +69,12 @@ class SampleRepository:
         db.refresh(sample)
 
         return sample
+
+    @staticmethod
+    def delete(
+        db: Session,
+        sample: Sample,
+    ):
+
+        db.delete(sample)
+        db.commit()

@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import DateTime, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.database import Base
 
@@ -55,3 +55,9 @@ class Sample(Base):
         DateTime,
         default=datetime.utcnow
     )
+    analysis = relationship(
+    "Analysis",
+    back_populates="sample",
+    uselist=False,
+    cascade="all, delete-orphan",
+)

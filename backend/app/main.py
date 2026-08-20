@@ -8,6 +8,7 @@ from app.database.database import Base, engine
 
 # Import models so SQLAlchemy can discover them
 from app.models.sample import Sample
+from app.api.sample import router as sample_router
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -44,3 +45,4 @@ async def health():
 
 
 app.include_router(upload_router)
+app.include_router(sample_router)
