@@ -8,14 +8,15 @@ from app.database.database import Base
 
 class Analysis(Base):
     """
-    Database model representing the analysis results of an uploaded sample.
+    Database model representing the analysis results
+    of an uploaded sample.
     """
 
     __tablename__ = "analysis"
 
     id: Mapped[int] = mapped_column(
         primary_key=True,
-        autoincrement=True
+        autoincrement=True,
     )
 
     sample_id: Mapped[str] = mapped_column(
@@ -35,6 +36,16 @@ class Analysis(Base):
     )
 
     pe_analysis: Mapped[dict | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+
+    yara_matches: Mapped[list | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+
+    suspicious_strings: Mapped[list | None] = mapped_column(
         JSON,
         nullable=True,
     )

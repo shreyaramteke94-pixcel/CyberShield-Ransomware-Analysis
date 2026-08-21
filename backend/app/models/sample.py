@@ -56,8 +56,8 @@ class Sample(Base):
         default=datetime.utcnow
     )
     analysis = relationship(
-    "Analysis",
-    back_populates="sample",
-    uselist=False,
-    cascade="all, delete-orphan",
-)
+        "Analysis",
+        back_populates="sample",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )

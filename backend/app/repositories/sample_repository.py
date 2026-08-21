@@ -7,7 +7,6 @@ class SampleRepository:
     """
     Handles all database operations related to uploaded samples.
     """
-
     @staticmethod
     def create(
         db: Session,
