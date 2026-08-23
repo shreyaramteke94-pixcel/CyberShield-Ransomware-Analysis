@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Ransomware Risk Analyzer</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 30px 20px;
+            background: #f5f7fa;
+            color: #222;
+        }
+
+        h1 {
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        .upload-box {
+            background: white;
+            border: 2px dashed #888;
+            padding: 35px;
+            text-align: center;
+            border-radius: 12px;
+        }
+
+        .upload-box input {
+            max-width: 100%;
+        }
+
+        button {
+            margin-top: 15px;
+            padding: 11px 28px;
+            border: none;
+            border-radius: 7px;
+            background: #222;
+            color: white;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        button:hover {
+            opacity: 0.85;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .selected-file {
+            margin-top: 15px;
+            color: #555;
+        }
+
+        .safety {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border: 1px solid #aaa;
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .assessment {
+            text-align: center;
+        }
+
+        .risk {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 28px;
+            font-weight: bold;
+            background: #eee;
+        }
+
+        .risk-score {
+            font-size: 20px;
+            margin-top: 15px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #ddd;
+            word-break: break-word;
+        }
+
+        td:first-child {
+            font-weight: bold;
+            width: 40%;
+        }
+
+        .reason {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .error {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff;
+            border: 1px solid #aaa;
+            border-radius: 8px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .footer-note {
+            margin-top: 30px;
+            text-align: center;
+            color: #777;
+            font-size: 13px;
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+    <h1>
+        Ransomware Risk Analyzer
+    </h1>
+
+    <p class="subtitle">
+        Local static-analysis dashboard
+    </p>
+
+
+    <!-- Upload Section -->
+
+    <div class="upload-box">
+
+        <h2>
+            Analyze a File
+        </h2>
+
+        <p>
+            Select a file for static analysis.
+        </p>
+
+        <input
+            type="file"
+            id="fileInput"
+        >
+
+        <div
+            id="selectedFile"
+            class="selected-file"
+        ></div>
+
+        <button
+            id="analyzeButton"
+            onclick="analyzeFile()"
+        >
+            Analyze File
+        </button>
+
+    </div>
+
+
+    <!-- Safety Information -->
+
+    <div class="safety">
+
+        <strong>Safety:</strong>
+
+        Files are treated as data only.
+        This application does not execute,
+        modify, encrypt, or delete uploaded files.
+
+    </div>
+
+
+    <!-- Loading / Status -->
+
+    <div
+        id="status"
+        class="status hidden"
+    >
+
+        <strong id="statusText">
+            Preparing analysis...
+        </strong>
+
+    </div>
+
+
+    <!-- Error -->
+
+    <div
+        id="error"
+        class="error hidden"
+    ></div>
+
+
+    <!-- Results -->
+
+    <div
+        id="result"
+        class="hidden"
+    >
+
+
+        <!-- Final Assessment -->
+
+        <div class="card assessment">
+
+            <h2>
+                Final Assessment
+            </h2>
+
+            <div
+                id="riskLevel"
+                class="risk"
+            ></div>
+
+            <div class="risk-score">
+
+                Risk Score:
+
+                <strong id="riskScore"></strong>
+
+            </div>
+
+        </div>
+
+
+        <!-- File Features -->
+
+        <div class="card">
+
+            <h2>
+                Features
+            </h2>
+
+            <table>
+
+                <tr>
+                    <td>Filename</td>
+                    <td id="filename"></td>
+                </tr>
+
+                <tr>
+                    <td>File Size</td>
+                    <td id="fileSize"></td>
+                </tr>
+
+                <tr>
+                    <td>SHA-256</td>
+                    <td id="sha256"></td>
+                </tr>
+
+                <tr>
+                    <td>Entropy</td>
+                    <td id="entropy"></td>
+                </tr>
+
+                <tr>
+                    <td>YARA Matches</td>
+                    <td id="yara"></td>
+                </tr>
+
+                <tr>
+                    <td>Suspicious Extension</td>
+                    <td id="extension"></td>
+                </tr>
+
+                <tr>
+                    <td>Threat Intelligence</td>
+                    <td id="ti"></td>
+                </tr>
+
+                <tr>
+                    <td>ML Probability</td>
+                    <td id="ml"></td>
+                </tr>
+
+            </table>
+
+        </div>
+
+
+        <!-- Reasons -->
+
+        <div class="card">
+
+            <h2>
+                Reasons
+            </h2>
+
+            <div id="reasons"></div>
+
+        </div>
+
+
+    </div>
+
+
+    <div class="footer-note">
+
+        Local analysis only • Files are not executed
+
+    </div>
+
+
+<script>
+
+const fileInput =
+    document.getElementById(
+        "fileInput"
+    );
+
+
+const analyzeButton =
+    document.getElementById(
+        "analyzeButton"
+    );
+
+
+const selectedFile =
+    document.getElementById(
+        "selectedFile"
+    );
+
+
+const status =
+    document.getElementById(
+        "status"
+    );
+
+
+const statusText =
+    document.getElementById(
+        "statusText"
+    );
+
+
+const result =
+    document.getElementById(
+        "result"
+    );
+
+
+const error =
+    document.getElementById(
+        "error"
+    );
+
+
+
+/*
+    Show selected filename
+*/
+
+fileInput.addEventListener(
+    "change",
+    function() {
+
+        if (
+            fileInput.files &&
+            fileInput.files.length > 0
+        ) {
+
+            selectedFile.textContent =
+                "Selected: " +
+                fileInput.files[0].name;
+
+        }
+        else {
+
+            selectedFile.textContent =
+                "";
+
+        }
+
+    }
+);
+
+
+
+async function analyzeFile() {
+
+    result.classList.add(
+        "hidden"
+    );
+
+    error.classList.add(
+        "hidden"
+    );
+
+
+    /*
+        Check file selection
+    */
+
+    if (
+        !fileInput.files ||
+        fileInput.files.length === 0
+    ) {
+
+        error.textContent =
+            "Please select a file.";
+
+        error.classList.remove(
+            "hidden"
+        );
+
+        return;
+
+    }
+
+
+    const file =
+        fileInput.files[0];
+
+
+    /*
+        Show loading state
+    */
+
+    analyzeButton.disabled =
+        true;
+
+    analyzeButton.textContent =
+        "Analyzing...";
+
+
+    statusText.textContent =
+        "Reading file and extracting features...";
+
+    status.classList.remove(
+        "hidden"
+    );
+
+
+    /*
+        Create request
+    */
+
+    const formData =
+        new FormData();
+
+
+    formData.append(
+        "file",
+        file
+    );
+
+
+    try {
+
+        statusText.textContent =
+            "Sending file to local analyzer...";
+
+
+        /*
+            IMPORTANT:
+
+            This connects to your existing
+            Flask Module 8 endpoint.
+        */
+
+        const response =
+            await fetch(
+                "/api/analyze",
+                {
+                    method: "POST",
+                    body: formData
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        /*
+            Handle Flask errors
+        */
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.error ||
+                "Analysis failed."
+            );
+
+        }
+
+
+        statusText.textContent =
+            "Analysis completed.";
+
+
+        /*
+            Display filename
+        */
+
+        document.getElementById(
+            "filename"
+        ).textContent =
+            data.filename;
+
+
+        /*
+            Display file size
+        */
+
+        document.getElementById(
+            "fileSize"
+        ).textContent =
+            data.file_size +
+            " bytes";
+
+
+        /*
+            Display SHA-256
+        */
+
+        document.getElementById(
+            "sha256"
+        ).textContent =
+            data.sha256;
+
+
+        /*
+            Display entropy
+        */
+
+        document.getElementById(
+            "entropy"
+        ).textContent =
+            data.entropy;
+
+
+        /*
+            Display YARA matches
+        */
+
+        document.getElementById(
+            "yara"
+        ).textContent =
+            data.yara_matches;
+
+
+        /*
+            Suspicious extension
+        */
+
+        document.getElementById(
+            "extension"
+        ).textContent =
+            data.suspicious_extension
+                ? "YES"
+                : "NO";
+
+
+        /*
+            Threat intelligence
+        */
+
+        document.getElementById(
+            "ti"
+        ).textContent =
+            data.threat_intelligence_score;
+
+
+        /*
+            ML probability
+
+            Your backend returns this
+            as a value between 0 and 1.
+
+            Example:
+            0.912 -> 91.20%
+        */
+
+        document.getElementById(
+            "ml"
+        ).textContent =
+            (
+                data.ml_probability * 100
+            ).toFixed(2) +
+            "%";
+
+
+        /*
+            Risk score
+        */
+
+        document.getElementById(
+            "riskScore"
+        ).textContent =
+            data.risk_score +
+            "/100";
+
+
+        /*
+            Risk level
+        */
+
+        const riskLevel =
+            document.getElementById(
+                "riskLevel"
+            );
+
+
+        riskLevel.textContent =
+            data.risk_level;
+
+
+        /*
+            Simple visual classification
+        */
+
+        if (
+            data.risk_level === "HIGH"
+        ) {
+
+            riskLevel.textContent =
+                "HIGH RISK";
+
+        }
+        else if (
+            data.risk_level === "MEDIUM"
+        ) {
+
+            riskLevel.textContent =
+                "MEDIUM RISK";
+
+        }
+        else {
+
+            riskLevel.textContent =
+                "LOW RISK";
+
+        }
+
+
+        /*
+            Display reasons
+        */
+
+        const reasons =
+            document.getElementById(
+                "reasons"
+            );
+
+
+        reasons.innerHTML =
+            "";
+
+
+        if (
+            Array.isArray(
+                data.reasons
+            ) &&
+            data.reasons.length > 0
+        ) {
+
+            data.reasons.forEach(
+                function(reason) {
+
+                    const item =
+                        document.createElement(
+                            "div"
+                        );
+
+
+                    item.className =
+                        "reason";
+
+
+                    item.textContent =
+                        "• " + reason;
+
+
+                    reasons.appendChild(
+                        item
+                    );
+
+                }
+            );
+
+        }
+        else {
+
+            reasons.textContent =
+                "No specific risk reasons were returned.";
+
+        }
+
+
+        /*
+            Show results
+        */
+
+        result.classList.remove(
+            "hidden"
+        );
+
+    }
+
+
+    catch (err) {
+
+        error.textContent =
+            err.message ||
+            "Could not connect to the Flask backend.";
+
+        error.classList.remove(
+            "hidden"
+        );
+
+    }
+
+
+    finally {
+
+        analyzeButton.disabled =
+            false;
+
+        analyzeButton.textContent =
+            "Analyze File";
+
+        status.classList.add(
+            "hidden"
+        );
+
+    }
+
+}
+
+</script>
+
+</body>
+
+</html>
