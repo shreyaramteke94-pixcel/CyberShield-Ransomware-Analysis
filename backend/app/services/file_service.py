@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.repositories.sample_repository import SampleRepository
 from app.services.analysis_services import AnalysisServices
+from app.utils.hash import calculate_sha256
 
 
 class FileService:
@@ -20,14 +21,13 @@ class FileService:
         db: Session,
         file: UploadFile,
     ):
-
         # ----------------------------
         # Validate filename
         # ----------------------------
         if not file.filename:
             raise HTTPException(
                 status_code=400,
-                detail="Filename is missing."
+                detail="Filename is missing.",
             )
 
         # ----------------------------
@@ -48,7 +48,7 @@ class FileService:
         if extension not in allowed_extensions:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unsupported file type: .{extension}"
+                detail=f"Unsupported file type: .{extension}",
             )
 
         # ----------------------------
@@ -73,25 +73,76 @@ class FileService:
         # ----------------------------
         # Save file
         # ----------------------------
-        with destination.open("wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        try:
+            with destination.open("wb") as buffer:
+                shutil.copyfileobj(
+                    file.file,
+                    buffer,
+                )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to save uploaded file: {exc}",
+            )
 
         # ----------------------------
-        # Analyze the uploaded file
+        # Calculate SHA-256
         # ----------------------------
-        analysis = AnalysisServices.analyze(destination)
+        sha256 = calculate_sha256(destination)
 
         # ----------------------------
-        # Save metadata to database
+        # Get file size
         # ----------------------------
-        sample = SampleRepository.create(
-            db=db,
-            original_filename=file.filename,
-            stored_filename=stored_filename,
-            file_extension=extension,
-            file_size=analysis["file_size"],
-            sha256=analysis["sha256"],
-        )
+        file_size = destination.stat().st_size
+
+        # ----------------------------
+        # Save sample metadata
+        #
+        # We must create the Sample first
+        # because AnalysisServices.analyze()
+        # needs the sample_id.
+        # ----------------------------
+        try:
+            sample = SampleRepository.create(
+                db=db,
+                original_filename=file.filename,
+                stored_filename=stored_filename,
+                file_extension=extension,
+                file_size=file_size,
+                sha256=sha256,
+            )
+        except Exception as exc:
+            # Remove physical file if database
+            # operation fails.
+            if destination.exists():
+                destination.unlink()
+
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to save sample metadata: {exc}",
+            )
+
+        # ----------------------------
+        # Perform static analysis
+        #
+        # This calculates and stores:
+        # - MIME type
+        # - entropy
+        # - PE analysis
+        # - YARA matches
+        # - suspicious strings
+        # ----------------------------
+        try:
+            analysis = AnalysisServices.analyze(
+                db=db,
+                sample_id=sample.id,
+                file_path=destination,
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"File analysis failed: {exc}",
+            )
 
         # ----------------------------
         # Return response
