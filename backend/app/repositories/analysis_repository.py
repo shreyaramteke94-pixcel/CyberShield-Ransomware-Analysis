@@ -15,8 +15,10 @@ class AnalysisRepository:
         mime_type: str,
         entropy: float,
         pe_analysis: dict | None,
-        yara_matches: list | None,
-        suspicious_strings: list | None,
+        yara_matches: list | None = None,
+        suspicious_strings: list | None = None,
+        risk_score: int = 0,
+        severity: str = "LOW",
     ) -> Analysis:
 
         analysis = Analysis(
@@ -26,6 +28,8 @@ class AnalysisRepository:
             pe_analysis=pe_analysis,
             yara_matches=yara_matches,
             suspicious_strings=suspicious_strings,
+            risk_score=risk_score,
+            severity=severity,
         )
 
         db.add(analysis)
@@ -53,8 +57,10 @@ class AnalysisRepository:
         mime_type: str,
         entropy: float,
         pe_analysis: dict | None,
-        yara_matches: list | None,
-        suspicious_strings: list | None,
+        yara_matches: list | None = None,
+        suspicious_strings: list | None = None,
+        risk_score: int = 0,
+        severity: str = "LOW",
     ) -> Analysis:
 
         analysis.mime_type = mime_type
@@ -62,6 +68,8 @@ class AnalysisRepository:
         analysis.pe_analysis = pe_analysis
         analysis.yara_matches = yara_matches
         analysis.suspicious_strings = suspicious_strings
+        analysis.risk_score = risk_score
+        analysis.severity = severity
 
         db.commit()
         db.refresh(analysis)
@@ -72,7 +80,7 @@ class AnalysisRepository:
     def delete(
         db: Session,
         analysis: Analysis,
-    ):
+    ) -> None:
 
         db.delete(analysis)
         db.commit()

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, JSON, String
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.database import Base
@@ -15,6 +15,7 @@ class Analysis(Base):
     __tablename__ = "analysis"
 
     id: Mapped[int] = mapped_column(
+        Integer,
         primary_key=True,
         autoincrement=True,
     )
@@ -48,6 +49,18 @@ class Analysis(Base):
     suspicious_strings: Mapped[list | None] = mapped_column(
         JSON,
         nullable=True,
+    )
+
+    risk_score: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    severity: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="LOW",
     )
 
     analyzed_at: Mapped[datetime] = mapped_column(
