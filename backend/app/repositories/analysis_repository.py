@@ -20,6 +20,9 @@ class AnalysisRepository:
         risk_score: int = 0,
         severity: str = "LOW",
     ) -> Analysis:
+        """
+        Create and save a new analysis record.
+        """
 
         analysis = Analysis(
             sample_id=sample_id,
@@ -43,10 +46,15 @@ class AnalysisRepository:
         db: Session,
         sample_id: str,
     ) -> Analysis | None:
+        """
+        Get analysis by sample ID.
+        """
 
         return (
             db.query(Analysis)
-            .filter(Analysis.sample_id == sample_id)
+            .filter(
+                Analysis.sample_id == sample_id
+            )
             .first()
         )
 
@@ -62,13 +70,22 @@ class AnalysisRepository:
         risk_score: int = 0,
         severity: str = "LOW",
     ) -> Analysis:
+        """
+        Update an existing analysis record.
+        """
 
         analysis.mime_type = mime_type
+
         analysis.entropy = entropy
+
         analysis.pe_analysis = pe_analysis
+
         analysis.yara_matches = yara_matches
+
         analysis.suspicious_strings = suspicious_strings
+
         analysis.risk_score = risk_score
+
         analysis.severity = severity
 
         db.commit()
@@ -81,6 +98,9 @@ class AnalysisRepository:
         db: Session,
         analysis: Analysis,
     ) -> None:
+        """
+        Delete an analysis record.
+        """
 
         db.delete(analysis)
         db.commit()

@@ -92,31 +92,104 @@ const mapBackendToFrontendSample = (
   const analysis = data.analysis || {};
   const detection = data.ransomware_detection || {};
 
-  const riskScore = detection.risk_score ?? analysis.risk_score ?? 65;
-  const isMalicious =
-    riskScore >= 50 ||
-    detection.risk_level === 'CRITICAL' ||
-    detection.risk_level === 'HIGH';
-  const isSafe = riskScore < 20;
+  const riskScore =
+    detection.risk_score ??
+    analysis.risk_score ??
+    0;
 
-  const severityStr = (
+  /*
+   * ---------------------------------------------------------
+   * Determine threat level
+   * ---------------------------------------------------------
+   */
+
+  const backendRiskLevel = (
     detection.risk_level ||
     analysis.severity ||
-    (riskScore >= 80 ? 'CRITICAL' : riskScore >= 50 ? 'HIGH' : riskScore >= 20 ? 'MEDIUM' : 'SAFE')
+    ''
   ).toUpperCase();
 
-  const threatLevel: ThreatLevel =
+  const severityStr =
+    backendRiskLevel ||
+    (
+      riskScore >= 80
+        ? 'CRITICAL'
+        : riskScore >= 50
+          ? 'HIGH'
+          : riskScore >= 20
+            ? 'MEDIUM'
+            : 'LOW'
+    );
+
+  const threatLevel =
     severityStr === 'CRITICAL'
       ? 'CRITICAL'
       : severityStr === 'HIGH'
         ? 'HIGH'
         : severityStr === 'MEDIUM'
           ? 'MEDIUM'
-          : severityStr === 'LOW'
-            ? 'LOW'
-            : 'SAFE';
+          : 'LOW';
 
-  const verdict: Verdict = isMalicious ? 'MALICIOUS' : isSafe ? 'SAFE' : 'SUSPICIOUS';
+  /*
+   * ---------------------------------------------------------
+   * Check for actual suspicious indicators
+   * ---------------------------------------------------------
+   */
+
+  const staticReasons = Array.isArray(analysis.reasons)
+    ? analysis.reasons
+    : [];
+
+  const suspiciousStrings = Array.isArray(
+    analysis.suspicious_strings
+  )
+    ? analysis.suspicious_strings
+    : [];
+
+  const hasSuspiciousIndicators =
+    staticReasons.length > 0 ||
+    suspiciousStrings.length > 0;
+
+  /*
+   * ---------------------------------------------------------
+   * Determine malicious status
+   * ---------------------------------------------------------
+   */
+
+  const isMalicious =
+    severityStr === 'CRITICAL' ||
+    severityStr === 'HIGH' ||
+    detection.risk_level === 'CRITICAL' ||
+    detection.risk_level === 'HIGH';
+
+  /*
+   * ---------------------------------------------------------
+   * SAFE means:
+   *
+   * - no malicious severity
+   * - no suspicious strings
+   * - no analysis reasons
+   *
+   * A LOW score alone does NOT automatically mean SAFE.
+   * ---------------------------------------------------------
+   */
+
+  const isSafe =
+    !isMalicious &&
+    !hasSuspiciousIndicators;
+
+  /*
+   * ---------------------------------------------------------
+   * Final verdict
+   * ---------------------------------------------------------
+   */
+
+  const verdict: Verdict =
+    isMalicious
+      ? 'MALICIOUS'
+      : isSafe
+        ? 'SAFE'
+        : 'SUSPICIOUS';
 
   const yaraList = (analysis.yara_matches || []).map((y) =>
     typeof y === 'string' ? y : y.rule || 'YARA_Rule'

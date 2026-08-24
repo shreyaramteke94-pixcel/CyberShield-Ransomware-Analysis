@@ -1,136 +1,208 @@
 from pathlib import Path
 import re
 
-class SuspiciousStringScanner:
-    """
-    Performs static analysis by searching a file for
-    potentially suspicious strings.
-    """
-
-    MIN_STRING_LENGTH = 4
-    MAX_RESULTS = 100
-
-    SUSPICIOUS_KEYWORDS = [
-        "powershell",
-        "cmd.exe",
-        "wscript",
-        "cscript",
-        "mshta",
-        "rundll32",
-        "regsvr32",
-        "certutil",
-        "bitsadmin",
-        "downloadstring",
-        "invoke-expression",
-        "invoke-webrequest",
-        "start-process",
-        "createprocess",
-        "virtualalloc",
-        "writeprocessmemory",
-        "createremotethread",
-        "openprocess",
-        "urldownloadtofile",
-        "http://",
-        "https://",
-        "ftp://",
-        "bitcoin",
-        "ransom",
-        "ransomware",
-        "decrypt",
-        "encrypted",
-        "encrypt",
-        "shadowcopy",
-        "vssadmin",
-        "wbadmin",
-        "bcdedit",
-        "credential",
-        "password",
-        "keylogger",
-    ]
-
-    @classmethod
-    def extract_strings(cls, data: bytes) -> list[str]:
-        """
-        Extract printable ASCII strings from raw file data.
-        """
-        pattern = rb"[\x20-\x7E]{4,}"
-        matches = re.findall(pattern, data)
-        return [
-            match.decode("ascii", errors="ignore")
-            for match in matches
-        ]
-
-    @classmethod
-    def scan(cls, file_path: Path) -> list[str]:
-        """
-        Scan a file for suspicious printable strings.
-
-        Returns:
-            A list of suspicious strings.
-        """
-        if not file_path.exists():
-            return []
-
-        try:
-            data = file_path.read_bytes()
-        except OSError:
-            return []
-
-        strings = cls.extract_strings(data)
-        suspicious_strings = []
-
-        for value in strings:
-            lowered = value.lower()
-            for keyword in cls.SUSPICIOUS_KEYWORDS:
-                if keyword in lowered:
-                    suspicious_strings.append(value)
-                    break
-
-            if len(suspicious_strings) >= cls.MAX_RESULTS:
-                break
-
-        return suspicious_strings
-
 
 class StringExtractor:
     """
-    Extract printable strings and identify suspicious strings from a file.
+    Extracts readable strings from files and identifies
+    strings that may be suspicious.
+
+    This performs static analysis only.
     """
 
-    @staticmethod
-    def extract(
-        file_path: Path,
-        min_length: int = 4,
-    ) -> list[str]:
+    # Minimum length for extracted strings
+    MIN_LENGTH = 4
+
+    # Maximum number of strings returned
+    MAX_STRINGS = 10000
+
+    # Suspicious patterns
+    SUSPICIOUS_PATTERNS = [
+        r"powershell",
+        r"cmd\.exe",
+        r"command\.com",
+        r"wscript",
+        r"cscript",
+        r"mshta",
+        r"rundll32",
+        r"regsvr32",
+        r"certutil",
+        r"bitsadmin",
+        r"curl",
+        r"wget",
+        r"invoke-expression",
+        r"invoke-webrequest",
+        r"downloadstring",
+        r"downloadfile",
+        r"base64",
+        r"frombase64string",
+        r"encodedcommand",
+        r"createprocess",
+        r"virtualalloc",
+        r"writeprocessmemory",
+        r"winexec",
+        r"shell32",
+        r"urlmon",
+        r"http://",
+        r"https://",
+        r"ftp://",
+        r"ransom",
+        r"ransomware",
+        r"encrypt",
+        r"decrypt",
+        r"bitcoin",
+        r"monero",
+        r"wallet",
+        r"payment",
+        r"readme",
+        r"restore",
+        r"files encrypted",
+        r"your files",
+    ]
+
+    @classmethod
+    def extract(cls, file_path: Path) -> list[str]:
+        """
+        Extract printable ASCII and UTF-8 strings from a file.
+
+        Returns:
+            List of extracted strings.
+        """
+
         if not file_path.exists():
             return []
+
         try:
             data = file_path.read_bytes()
-        except OSError:
+        except Exception:
             return []
 
-        pattern = rb"[\x20-\x7E]{%d,}" % min_length
-        strings = re.findall(pattern, data)
+        strings = []
 
-        return [
-            string.decode("utf-8", errors="ignore")
-            for string in strings
-        ]
+        # ---------------------------------------------------------
+        # ASCII strings
+        # ---------------------------------------------------------
 
-    @staticmethod
+        ascii_pattern = re.compile(
+            rb"[ -~]{%d,}" % cls.MIN_LENGTH
+        )
+
+        ascii_matches = ascii_pattern.findall(
+            data
+        )
+
+        for match in ascii_matches:
+            try:
+                value = match.decode(
+                    "ascii",
+                    errors="ignore",
+                ).strip()
+
+                if value:
+                    strings.append(value)
+
+            except Exception:
+                continue
+
+        # ---------------------------------------------------------
+        # UTF-8 strings
+        # ---------------------------------------------------------
+
+        try:
+            decoded = data.decode(
+                "utf-8",
+                errors="ignore",
+            )
+
+            unicode_pattern = re.compile(
+                r"[^\x00-\x1F\x7F-\x9F]{%d,}"
+                % cls.MIN_LENGTH
+            )
+
+            unicode_matches = (
+                unicode_pattern.findall(
+                    decoded
+                )
+            )
+
+            for value in unicode_matches:
+                value = value.strip()
+
+                if value:
+                    strings.append(value)
+
+        except Exception:
+            pass
+
+        # ---------------------------------------------------------
+        # Remove duplicates
+        # ---------------------------------------------------------
+
+        unique_strings = []
+
+        seen = set()
+
+        for value in strings:
+
+            if value not in seen:
+
+                seen.add(value)
+
+                unique_strings.append(value)
+
+            if len(unique_strings) >= cls.MAX_STRINGS:
+                break
+
+        return unique_strings
+
+    @classmethod
     def suspicious_strings(
+        cls,
         strings: list[str],
     ) -> list[str]:
-        keywords = SuspiciousStringScanner.SUSPICIOUS_KEYWORDS
+        """
+        Identify suspicious strings from extracted strings.
 
-        found = []
-        for string in strings:
-            lowered = string.lower()
-            for keyword in keywords:
-                if keyword in lowered:
-                    found.append(string)
+        Returns:
+            List of suspicious strings.
+        """
+
+        if not strings:
+            return []
+
+        suspicious = []
+
+        # Compile patterns once
+        compiled_patterns = [
+            re.compile(
+                pattern,
+                re.IGNORECASE,
+            )
+            for pattern in cls.SUSPICIOUS_PATTERNS
+        ]
+
+        for value in strings:
+
+            for pattern in compiled_patterns:
+
+                if pattern.search(value):
+
+                    suspicious.append(value)
+
                     break
 
-        return list(set(found))
+        # Remove duplicates while preserving order
 
+        result = []
 
+        seen = set()
+
+        for value in suspicious:
+
+            if value not in seen:
+
+                seen.add(value)
+
+                result.append(value)
+
+        return result

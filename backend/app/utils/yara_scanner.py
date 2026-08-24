@@ -6,6 +6,9 @@ import yara
 class YaraScanner:
     """
     Scans files using YARA rules.
+
+    This scanner only performs static analysis.
+    It does not execute the uploaded file.
     """
 
     RULES_DIRECTORY = Path("app/yara")
@@ -16,22 +19,68 @@ class YaraScanner:
         Scan a file against all YARA rules.
 
         Returns:
-            List of matched rule names.
+            List of matched YARA rule names.
         """
+
+        # ---------------------------------------------------------
+        # Check file exists
+        # ---------------------------------------------------------
+
+        if not file_path.exists():
+            return []
+
+        # ---------------------------------------------------------
+        # Check YARA rules directory
+        # ---------------------------------------------------------
 
         if not cls.RULES_DIRECTORY.exists():
             return []
 
+        # ---------------------------------------------------------
+        # Find YARA rule files
+        # ---------------------------------------------------------
+
         rule_files = {}
 
-        for rule in cls.RULES_DIRECTORY.glob("*.yar"):
-            rule_files[rule.stem] = str(rule)
+        for rule_file in cls.RULES_DIRECTORY.glob("*.yar"):
+            rule_files[rule_file.stem] = str(
+                rule_file
+            )
+
+        # ---------------------------------------------------------
+        # No rules available
+        # ---------------------------------------------------------
 
         if not rule_files:
             return []
 
-        rules = yara.compile(filepaths=rule_files)
+        # ---------------------------------------------------------
+        # Compile YARA rules
+        # ---------------------------------------------------------
 
-        matches = rules.match(str(file_path))
+        try:
+            rules = yara.compile(
+                filepaths=rule_files
+            )
+        except Exception:
+            return []
 
-        return [match.rule for match in matches]
+        # ---------------------------------------------------------
+        # Scan file
+        # ---------------------------------------------------------
+
+        try:
+            matches = rules.match(
+                str(file_path)
+            )
+        except Exception:
+            return []
+
+        # ---------------------------------------------------------
+        # Return rule names
+        # ---------------------------------------------------------
+
+        return [
+            match.rule
+            for match in matches
+        ]

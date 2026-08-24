@@ -1,93 +1,80 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import Base
-from app.database import engine
+from app.database.database import Base, engine
 
-# Import model so SQLAlchemy knows about the table.
+# Import models so SQLAlchemy registers them before create_all()
 from app.models.sample import Sample
+from app.models.analysis import Analysis
 
-# Import API router.
+# Import API routers
 from app.api.upload import router as upload_router
+from app.api.sample import router as sample_router
+from app.api.delete import router as delete_router
 
 
-# ============================================================
-# CREATE DATABASE TABLES
-# ============================================================
-
-Base.metadata.create_all(
-    bind=engine
-)
+# ---------------------------------------------------------
+# Create database tables
+# ---------------------------------------------------------
+Base.metadata.create_all(bind=engine)
 
 
-# ============================================================
-# FASTAPI APPLICATION
-# ============================================================
-
+# ---------------------------------------------------------
+# Create FastAPI application
+# ---------------------------------------------------------
 app = FastAPI(
-    title="CyberShield Ransomware Analysis API",
-    description="Backend API for CyberShield malware analysis",
-    version="1.0.0"
+    title="CyberShield - Ransomware Analysis API",
+    description=(
+        "Static malware and ransomware analysis API. "
+        "The system analyzes uploaded files without executing them."
+    ),
+    version="1.0.0",
 )
 
 
-# ============================================================
+# ---------------------------------------------------------
 # CORS
-# ============================================================
-
+# Allows the frontend to communicate with FastAPI.
+# ---------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000"
-    ],
-
+    allow_origins=["*"],
     allow_credentials=True,
-
-    allow_methods=[
-        "*"
-    ],
-
-    allow_headers=[
-        "*"
-    ]
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
-# ============================================================
-# API ROUTES
-# ============================================================
+# ---------------------------------------------------------
+# Register API routers
+#
+# IMPORTANT:
+# The routers already contain their own prefixes.
+# Therefore we DO NOT add another "/api" prefix here.
+# ---------------------------------------------------------
+app.include_router(upload_router)
+app.include_router(sample_router)
+app.include_router(delete_router)
 
-app.include_router(
-    upload_router,
-    prefix="/api"
-)
 
-
-# ============================================================
-# ROOT ENDPOINT
-# ============================================================
-
+# ---------------------------------------------------------
+# Root endpoint
+# ---------------------------------------------------------
 @app.get("/")
 def root():
-
     return {
-        "success": True,
-        "message": "CyberShield API is running",
-        "database": "SQLite",
-        "status": "online"
+        "name": "CyberShield",
+        "status": "running",
+        "message": "CyberShield API is running successfully.",
     }
 
 
-# ============================================================
-# HEALTH CHECK
-# ============================================================
-
+# ---------------------------------------------------------
+# Health check
+# ---------------------------------------------------------
 @app.get("/health")
 def health_check():
-
     return {
-        "success": True,
-        "status": "healthy"
+        "status": "healthy",
+        "database": "connected",
     }

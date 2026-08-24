@@ -1,6 +1,5 @@
 from pathlib import Path
 from uuid import uuid4
-import shutil
 import sys
 
 from fastapi import HTTPException, UploadFile
@@ -12,26 +11,15 @@ from app.services.analysis_services import AnalysisServices
 from app.utils.hash import calculate_sha256
 
 
-# ============================================================
-# RANSOMWARE DETECTION MODULE
-# ============================================================
+# ---------------------------------------------------------
+# Connect ransomware_detection module
+# ---------------------------------------------------------
 
-# Project root:
-# CyberShield-Ransomware-Analysis/
-#
-# This file:
-# backend/app/services/file_service.py
-#
-# Therefore parents[3] points to the project root.
-
-RANSOMWARE_MODULE = (
-    Path(__file__).resolve().parents[3]
-    / "ransomware_detection"
-)
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+RANSOMWARE_MODULE = PROJECT_ROOT / "ransomware_detection"
 
 if str(RANSOMWARE_MODULE) not in sys.path:
     sys.path.insert(0, str(RANSOMWARE_MODULE))
-
 
 from src.analyzer import Analyzer
 from src.file_features import extract_features
@@ -39,35 +27,30 @@ from src.file_features import extract_features
 
 class FileService:
     """
-    Handles the complete file upload and analysis workflow.
+    Handles the complete CyberShield upload workflow.
 
-    Workflow:
-        Upload file
-            ↓
-        Save file
-            ↓
-        Calculate SHA-256
-            ↓
-        Save sample metadata
-            ↓
-        Existing static analysis
-            ↓
-        Ransomware detection
-            ↓
-        Return combined result
+    Upload
+        ↓
+    Save file
+        ↓
+    Save sample in database
+        ↓
+    Static analysis
+        ↓
+    Ransomware ML analysis
+        ↓
+    Return combined result
     """
 
-    # Load the ransomware analyzer once.
-    ransomware_analyzer = Analyzer()
-
     @staticmethod
-    def save_file(
+    async def save_file(
         db: Session,
         file: UploadFile,
-    ):
-        # ====================================================
-        # 1. Validate filename
-        # ====================================================
+    ) -> dict:
+
+        # -------------------------------------------------
+        # Validate filename
+        # -------------------------------------------------
 
         if not file.filename:
             raise HTTPException(
@@ -75,16 +58,22 @@ class FileService:
                 detail="Filename is missing.",
             )
 
-        # ====================================================
-        # 2. Validate extension
-        # ====================================================
+        original_filename = file.filename
+
+        # -------------------------------------------------
+        # Get extension
+        # -------------------------------------------------
 
         extension = (
-            Path(file.filename)
+            Path(original_filename)
             .suffix
             .lower()
             .replace(".", "")
         )
+
+        # -------------------------------------------------
+        # Validate extension
+        # -------------------------------------------------
 
         allowed_extensions = [
             ext.strip().lower()
@@ -97,43 +86,59 @@ class FileService:
                 detail=f"Unsupported file type: .{extension}",
             )
 
-        # ====================================================
-        # 3. Create upload directory
-        # ====================================================
+        # -------------------------------------------------
+        # Create upload directory
+        # -------------------------------------------------
 
-        upload_dir = Path(settings.UPLOAD_DIR)
+        upload_directory = Path(
+            settings.UPLOAD_DIR
+        )
 
-        upload_dir.mkdir(
+        upload_directory.mkdir(
             parents=True,
             exist_ok=True,
         )
 
-        # ====================================================
-        # 4. Generate unique filename
-        # ====================================================
+        # -------------------------------------------------
+        # Generate sample ID
+        # -------------------------------------------------
 
-        file_id = str(uuid4())
+        sample_id = str(uuid4())
+
+        # -------------------------------------------------
+        # Generate stored filename
+        # -------------------------------------------------
 
         stored_filename = (
-            f"{file_id}.{extension}"
+            f"{sample_id}.{extension}"
         )
 
-        destination = (
-            upload_dir / stored_filename
+        file_path = (
+            upload_directory
+            / stored_filename
         )
 
-        # ====================================================
-        # 5. Save uploaded file
-        # ====================================================
+        # -------------------------------------------------
+        # Save uploaded file
+        # -------------------------------------------------
 
         try:
-            with destination.open("wb") as buffer:
-                shutil.copyfileobj(
-                    file.file,
-                    buffer,
-                )
+
+            with file_path.open("wb") as buffer:
+
+                while True:
+
+                    chunk = await file.read(
+                        1024 * 1024
+                    )
+
+                    if not chunk:
+                        break
+
+                    buffer.write(chunk)
 
         except Exception as exc:
+
             raise HTTPException(
                 status_code=500,
                 detail=(
@@ -141,41 +146,62 @@ class FileService:
                 ),
             )
 
-        # ====================================================
-        # 6. Calculate SHA-256
-        # ====================================================
-
-        sha256 = calculate_sha256(
-            destination
-        )
-
-        # ====================================================
-        # 7. Get file size
-        # ====================================================
-
-        file_size = destination.stat().st_size
-
-        # ====================================================
-        # 8. Save sample metadata
-        # ====================================================
+        # -------------------------------------------------
+        # Calculate SHA-256
+        # -------------------------------------------------
 
         try:
+
+            sha256 = calculate_sha256(
+                file_path
+            )
+
+        except Exception as exc:
+
+            if file_path.exists():
+                file_path.unlink()
+
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    f"Failed to calculate file hash: {exc}"
+                ),
+            )
+
+        # -------------------------------------------------
+        # Get file size
+        # -------------------------------------------------
+
+        file_size = file_path.stat().st_size
+
+        # -------------------------------------------------
+        # Save sample metadata
+        # -------------------------------------------------
+
+        try:
+
             sample = SampleRepository.create(
                 db=db,
-                original_filename=file.filename,
+
+                # IMPORTANT:
+                # Your repository requires sample_id.
+                sample_id=sample_id,
+
+                original_filename=original_filename,
+
                 stored_filename=stored_filename,
+
                 file_extension=extension,
+
                 file_size=file_size,
+
                 sha256=sha256,
             )
 
         except Exception as exc:
 
-            # Remove physical file if
-            # database operation fails.
-
-            if destination.exists():
-                destination.unlink()
+            if file_path.exists():
+                file_path.unlink()
 
             raise HTTPException(
                 status_code=500,
@@ -184,16 +210,16 @@ class FileService:
                 ),
             )
 
-        # ====================================================
-        # 9. Existing static analysis
-        # ====================================================
+        # -------------------------------------------------
+        # Existing static analysis
+        # -------------------------------------------------
 
         try:
 
             analysis = AnalysisServices.analyze(
                 db=db,
                 sample_id=sample.id,
-                file_path=destination,
+                file_path=file_path,
             )
 
         except Exception as exc:
@@ -201,42 +227,27 @@ class FileService:
             raise HTTPException(
                 status_code=500,
                 detail=(
-                    f"File analysis failed: {exc}"
+                    f"Static analysis failed: {exc}"
                 ),
             )
 
-        # ====================================================
-        # 10. Ransomware Detection
-        # ====================================================
+        # -------------------------------------------------
+        # Ransomware detection module
+        # -------------------------------------------------
 
         try:
 
-            # Read the saved file safely as bytes.
-            #
-            # The ransomware module performs static
-            # analysis. It does NOT execute the file.
-
-            file_data = destination.read_bytes()
-
-            # Extract features required by Analyzer:
-            #
-            # - file_size
-            # - entropy
-            # - suspicious_extension
-            # - yara_match_count
-            # - threat_intelligence_score
-            # - sha256
-            # - extension
+            file_data = file_path.read_bytes()
 
             ransomware_features = extract_features(
-                file.filename,
+                original_filename,
                 file_data,
             )
 
-            # Run ML prediction + risk engine.
+            ransomware_analyzer = Analyzer()
 
             ransomware_result = (
-                FileService.ransomware_analyzer.analyze(
+                ransomware_analyzer.analyze(
                     ransomware_features
                 )
             )
@@ -246,53 +257,31 @@ class FileService:
             raise HTTPException(
                 status_code=500,
                 detail=(
-                    f"Ransomware analysis failed: {exc}"
+                    "Ransomware detection failed: "
+                    f"{exc}"
                 ),
             )
 
-        # ====================================================
-        # 11. Return combined response
-        # ====================================================
+        # -------------------------------------------------
+        # Combined response
+        # -------------------------------------------------
 
         return {
             "sample_id": sample.id,
 
             "status": sample.status,
 
-            # Existing FastAPI static analysis
+            "filename": original_filename,
+
+            "stored_filename": stored_filename,
+
+            "file_size": file_size,
+
+            "sha256": sha256,
+
+            # Existing CyberShield analysis
             "analysis": analysis,
 
-            # Ransomware detection module
-            "ransomware_detection": {
-                "ml_prediction": (
-                    ransomware_result.get(
-                        "ml_prediction"
-                    )
-                ),
-
-                "ml_probability": (
-                    ransomware_result.get(
-                        "ml_probability"
-                    )
-                ),
-
-                "risk_score": (
-                    ransomware_result.get(
-                        "risk_score"
-                    )
-                ),
-
-                "risk_level": (
-                    ransomware_result.get(
-                        "risk_level"
-                    )
-                ),
-
-                "reasons": (
-                    ransomware_result.get(
-                        "reasons",
-                        []
-                    )
-                ),
-            },
+            # ML + ransomware risk analysis
+            "ransomware_detection": ransomware_result,
         }

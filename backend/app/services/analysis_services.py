@@ -1,7 +1,8 @@
 from pathlib import Path
 from datetime import datetime, timezone
-import mimetypes
+
 import math
+import mimetypes
 
 from sqlalchemy.orm import Session
 
@@ -16,6 +17,8 @@ from app.utils.risk_scoring import RiskScoringService
 class AnalysisServices:
     """
     Performs safe static analysis on uploaded files.
+
+    The service does not execute uploaded files.
     """
 
     @staticmethod
@@ -51,21 +54,21 @@ class AnalysisServices:
         file_path: Path,
     ) -> dict:
         """
-        Perform static analysis and save the results.
+        Perform complete static analysis and save the results.
         """
 
-        # -------------------------
-        # Check file exists
-        # -------------------------
+        # ---------------------------------------------------------
+        # Check file
+        # ---------------------------------------------------------
 
         if not file_path.exists():
             raise FileNotFoundError(
                 f"{file_path} does not exist."
             )
 
-        # -------------------------
+        # ---------------------------------------------------------
         # Basic file information
-        # -------------------------
+        # ---------------------------------------------------------
 
         stat = file_path.stat()
 
@@ -84,23 +87,25 @@ class AnalysisServices:
             or "application/octet-stream"
         )
 
-        # -------------------------
+        # ---------------------------------------------------------
         # SHA-256
-        # -------------------------
+        # ---------------------------------------------------------
 
-        sha256 = calculate_sha256(file_path)
+        sha256 = calculate_sha256(
+            file_path
+        )
 
-        # -------------------------
+        # ---------------------------------------------------------
         # Entropy
-        # -------------------------
+        # ---------------------------------------------------------
 
         entropy = AnalysisServices.calculate_entropy(
             file_path
         )
 
-        # -------------------------
+        # ---------------------------------------------------------
         # PE Analysis
-        # -------------------------
+        # ---------------------------------------------------------
 
         pe_analysis = None
 
@@ -110,35 +115,45 @@ class AnalysisServices:
             "sys",
             "scr",
         ]:
-            pe_analysis = PEParser.parse(
+            try:
+                pe_analysis = PEParser.parse(
+                    file_path
+                )
+            except Exception:
+                pe_analysis = None
+
+        # ---------------------------------------------------------
+        # YARA Scan
+        # ---------------------------------------------------------
+
+        try:
+            yara_matches = YaraScanner.scan(
+                file_path
+            )
+        except Exception:
+            yara_matches = []
+
+        # ---------------------------------------------------------
+        # String Extraction
+        # ---------------------------------------------------------
+
+        try:
+            all_strings = StringExtractor.extract(
                 file_path
             )
 
-        # -------------------------
-        # YARA Scan
-        # -------------------------
-
-        yara_matches = YaraScanner.scan(
-            file_path
-        )
-
-        # -------------------------
-        # String Extraction
-        # -------------------------
-
-        all_strings = StringExtractor.extract(
-            file_path
-        )
-
-        suspicious_strings = (
-            StringExtractor.suspicious_strings(
-                all_strings
+            suspicious_strings = (
+                StringExtractor.suspicious_strings(
+                    all_strings
+                )
             )
-        )
 
-        # -------------------------
+        except Exception:
+            suspicious_strings = []
+
+        # ---------------------------------------------------------
         # Risk Scoring
-        # -------------------------
+        # ---------------------------------------------------------
 
         risk_result = (
             RiskScoringService.calculate_score(
@@ -149,18 +164,24 @@ class AnalysisServices:
             )
         )
 
-        risk_score = risk_result["risk_score"]
+        risk_score = risk_result.get(
+            "risk_score",
+            0,
+        )
 
-        severity = risk_result["severity"]
+        severity = risk_result.get(
+            "severity",
+            "LOW",
+        )
 
         risk_reasons = risk_result.get(
             "reasons",
             [],
         )
 
-        # -------------------------
+        # ---------------------------------------------------------
         # Save Analysis
-        # -------------------------
+        # ---------------------------------------------------------
 
         existing = (
             AnalysisRepository.get_by_sample_id(
@@ -170,6 +191,7 @@ class AnalysisServices:
         )
 
         if existing:
+
             AnalysisRepository.update(
                 db=db,
                 analysis=existing,
@@ -183,6 +205,7 @@ class AnalysisServices:
             )
 
         else:
+
             AnalysisRepository.create(
                 db=db,
                 sample_id=sample_id,
@@ -195,16 +218,21 @@ class AnalysisServices:
                 severity=severity,
             )
 
-        # -------------------------
+        # ---------------------------------------------------------
         # Return Complete Analysis
-        # -------------------------
+        # ---------------------------------------------------------
 
         return {
             "filename": file_path.name,
+
             "extension": extension,
+
             "mime_type": mime_type,
+
             "file_size": stat.st_size,
+
             "sha256": sha256,
+
             "entropy": entropy,
 
             "created_at": datetime.fromtimestamp(
@@ -218,10 +246,14 @@ class AnalysisServices:
             ).isoformat(),
 
             "pe_analysis": pe_analysis,
+
             "yara_matches": yara_matches,
+
             "suspicious_strings": suspicious_strings,
 
             "risk_score": risk_score,
+
             "severity": severity,
+
             "reasons": risk_reasons,
         }

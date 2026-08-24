@@ -1,101 +1,78 @@
-from datetime import datetime
 
-from sqlalchemy import Column
-from sqlalchemy import DateTime
-from sqlalchemy import Float
-from sqlalchemy import Integer
-from sqlalchemy import String
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
-from app.database import Base
+from app.database.database import get_db
+from app.repositories.sample_repository import SampleRepository
 
 
-class Sample(Base):
+router = APIRouter(
+    prefix="/api/v1/samples",
+    tags=["Samples"],
+)
+
+
+@router.get("/")
+def get_samples(
+    db: Session = Depends(get_db),
+):
     """
-    Database model representing an uploaded malware sample.
+    Return all uploaded samples.
     """
 
-    __tablename__ = "samples"
+    return SampleRepository.get_all(db=db)
 
-    # --------------------------------------------------------
-    # Primary key
-    # --------------------------------------------------------
 
-    id = Column(
-        Integer,
-        primary_key=True,
-        index=True
+@router.get("/{sample_id}")
+def get_sample(
+    sample_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Return a single uploaded sample by ID.
+    """
+
+    sample = SampleRepository.get_by_id(
+        db=db,
+        sample_id=sample_id,
     )
 
-    # --------------------------------------------------------
-    # File information
-    # --------------------------------------------------------
+    if sample is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Sample not found.",
+        )
 
-    filename = Column(
-        String,
-        nullable=False
+    return sample
+
+
+@router.delete("/{sample_id}")
+def delete_sample(
+    sample_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Delete a sample from the database.
+    """
+
+    sample = SampleRepository.get_by_id(
+        db=db,
+        sample_id=sample_id,
     )
 
-    file_size = Column(
-        Integer,
-        nullable=True
+    if sample is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Sample not found.",
+        )
+
+    SampleRepository.delete(
+        db=db,
+        sample=sample,
     )
 
-    file_type = Column(
-        String,
-        nullable=True
-    )
+    return {
+        "message": "Sample deleted successfully.",
+        "sample_id": sample_id,
+    }
 
-    # --------------------------------------------------------
-    # Cryptographic hashes
-    # --------------------------------------------------------
-
-    md5 = Column(
-        String,
-        nullable=True,
-        index=True
-    )
-
-    sha256 = Column(
-        String,
-        nullable=True,
-        index=True
-    )
-
-    # --------------------------------------------------------
-    # Analysis information
-    # --------------------------------------------------------
-
-    verdict = Column(
-        String,
-        nullable=True
-    )
-
-    family = Column(
-        String,
-        nullable=True
-    )
-
-    confidence = Column(
-        Float,
-        nullable=True
-    )
-
-    # --------------------------------------------------------
-    # Processing status
-    # --------------------------------------------------------
-
-    status = Column(
-        String,
-        nullable=False,
-        default="uploaded"
-    )
-
-    # --------------------------------------------------------
-    # Timestamp
-    # --------------------------------------------------------
-
-    created_at = Column(
-        DateTime,
-        nullable=False,
-        default=datetime.utcnow
-    )
