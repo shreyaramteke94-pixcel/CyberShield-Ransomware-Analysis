@@ -1,0 +1,6 @@
+{
+  "name": "CyberShield",
+  "description": "CyberShield — Intelligent Security. Stronger Protection. Enterprise Cybersecurity, Automated Malware Detonation & Threat Detection SaaS Platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
