@@ -1,35 +1,101 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from datetime import datetime
 
-from app.database.database import get_db
-from app.repositories.sample_repository import SampleRepository
+from sqlalchemy import Column
+from sqlalchemy import DateTime
+from sqlalchemy import Float
+from sqlalchemy import Integer
+from sqlalchemy import String
 
-router = APIRouter(
-    prefix="/api/v1/samples",
-    tags=["Samples"],
-)
-
-
-@router.get("/")
-def get_samples(
-    db: Session = Depends(get_db),
-):
-    return SampleRepository.get_all(db)
+from app.database import Base
 
 
-@router.get("/{sample_id}")
-def get_sample(
-    sample_id: str,
-    db: Session = Depends(get_db),
-):
-    sample = SampleRepository.get_by_id(
-        db,
-        sample_id,
+class Sample(Base):
+    """
+    Database model representing an uploaded malware sample.
+    """
+
+    __tablename__ = "samples"
+
+    # --------------------------------------------------------
+    # Primary key
+    # --------------------------------------------------------
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
     )
 
-    if sample is None:
-        return {
-            "message": "Sample not found"
-        }
+    # --------------------------------------------------------
+    # File information
+    # --------------------------------------------------------
 
-    return sample
+    filename = Column(
+        String,
+        nullable=False
+    )
+
+    file_size = Column(
+        Integer,
+        nullable=True
+    )
+
+    file_type = Column(
+        String,
+        nullable=True
+    )
+
+    # --------------------------------------------------------
+    # Cryptographic hashes
+    # --------------------------------------------------------
+
+    md5 = Column(
+        String,
+        nullable=True,
+        index=True
+    )
+
+    sha256 = Column(
+        String,
+        nullable=True,
+        index=True
+    )
+
+    # --------------------------------------------------------
+    # Analysis information
+    # --------------------------------------------------------
+
+    verdict = Column(
+        String,
+        nullable=True
+    )
+
+    family = Column(
+        String,
+        nullable=True
+    )
+
+    confidence = Column(
+        Float,
+        nullable=True
+    )
+
+    # --------------------------------------------------------
+    # Processing status
+    # --------------------------------------------------------
+
+    status = Column(
+        String,
+        nullable=False,
+        default="uploaded"
+    )
+
+    # --------------------------------------------------------
+    # Timestamp
+    # --------------------------------------------------------
+
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
