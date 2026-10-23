@@ -216,3 +216,35 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ==========================
+# CyberShield Project Specific
+# ==========================
+
+# SQLite databases and journal files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+backend/cybershield.db
+
+# Uploaded test and analysis files (preserve directory via .gitkeep)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Recovery output (preserve directory via .gitkeep)
+backend/recovery-output/*
+!backend/recovery-output/.gitkeep
+
+# Encrypted demo files generated during runtime (preserve directory via .gitkeep)
+backend/demo_files/encrypted/*
+!backend/demo_files/encrypted/.gitkeep
+
+# Dependencies and build artifacts
+node_modules/
+frontend/dist/
+frontend/.cache/
+
+# Stubs temporary unpacks
+typings/yara/pyright/

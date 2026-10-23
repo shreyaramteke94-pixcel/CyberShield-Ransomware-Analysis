@@ -32,6 +32,7 @@ CyberShield is a Flask-based web application designed to analyze potentially mal
 - 🔐 File Hash Generation
 - 📊 Malware Metadata Analysis
 - 🛡️ Ransomware Signature Detection
+- 🐳 Isolated Docker Sandbox Subsystem ([Setup Guide](docs/SANDBOX_SETUP.md))
 - 📄 PDF Report Generation
 - 📈 Threat Intelligence Dashboard
 - 📂 Scan History

@@ -1,0 +1,39 @@
+{
+  "_notice": "CYBERSHIELD DEMO FILE — SIMULATED DATA ONLY — NOT REAL CONFIGURATION",
+  "_demo_purpose": "This JSON file is used to demonstrate AES-256-GCM encryption and decryption in the CyberShield platform.",
+  "application": {
+    "name": "DemoApp",
+    "version": "3.2.1",
+    "environment": "production-SIMULATED",
+    "region": "us-east-1-DEMO"
+  },
+  "database": {
+    "host": "db.demo.internal",
+    "port": 5432,
+    "name": "demo_database",
+    "pool_size": 10,
+    "note": "SIMULATED — no real credentials"
+  },
+  "security": {
+    "session_timeout_minutes": 30,
+    "max_login_attempts": 5,
+    "mfa_enabled": true,
+    "audit_log_retention_days": 365
+  },
+  "backup": {
+    "enabled": true,
+    "frequency": "daily",
+    "retention_copies": 30,
+    "offsite_enabled": true,
+    "note": "Regular backups are your best defence against ransomware"
+  },
+  "cybershield_demo": {
+    "encryption_algorithm": "AES-256-GCM",
+    "key_size_bits": 256,
+    "mode": "Authenticated Encryption with Associated Data (AEAD)",
+    "library": "cryptography (PyCA)",
+    "format_version": 1,
+    "integrity_protection": "GCM authentication tag (128-bit)",
+    "key_management": "Key returned once at encrypt time; not stored by server"
+  }
+}

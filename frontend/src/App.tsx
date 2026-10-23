@@ -13,6 +13,7 @@ import { AdminPanelView } from './components/AdminPanelView';
 import { SettingsView } from './components/SettingsView';
 import { AuthView } from './components/AuthView';
 import { DecryptionWorkbenchModal } from './components/DecryptionWorkbenchModal';
+import { DecryptionEnginePage } from './components/DecryptionEnginePage';
 
 export default function App() {
   // Authentication State: default null to ensure Login Page opens first
@@ -79,6 +80,11 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleUpdateSample = (updatedSample: SampleAnalysis) => {
+    setSamples(prev => prev.map(s => s.id === updatedSample.id ? updatedSample : s));
+    setSelectedSample(updatedSample);
+  };
+
   // If unauthenticated, show CyberShield Login / Auth View first
   if (!currentUser) {
     return <AuthView onLogin={handleLogin} />;
@@ -132,6 +138,7 @@ export default function App() {
               onOpenDecryptor={handleOpenDecryptor}
               onViewReport={handleViewReport}
               onNavigate={handleNavigate}
+              onUpdateSample={handleUpdateSample}
             />
           )}
 
@@ -159,6 +166,10 @@ export default function App() {
 
           {activeTab === 'settings' && (
             <SettingsView />
+          )}
+
+          {activeTab === 'decryption' && (
+            <DecryptionEnginePage />
           )}
         </main>
       </div>

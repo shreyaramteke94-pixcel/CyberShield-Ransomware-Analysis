@@ -1,0 +1,25 @@
+{
+  "include": [
+    "backend",
+    "ransomware_detection",
+    "docker"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/venv",
+    "frontend"
+  ],
+  "extraPaths": [
+    "ransomware_detection",
+    "backend"
+  ],
+  "stubPath": "typings",
+  "pythonVersion": "3.12",
+  "pythonPlatform": "Windows",
+  "venvPath": ".",
+  "venv": "venv",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "warning",
+  "reportMissingModuleSource": "none"
+}

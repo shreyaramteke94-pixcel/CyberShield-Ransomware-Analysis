@@ -1,5 +1,5 @@
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -53,13 +53,25 @@ class Sample(Base):
 
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
     )
 
     analysis = relationship(
         "Analysis",
         back_populates="sample",
         uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    sandbox_jobs = relationship(
+        "SandboxJob",
+        back_populates="sample",
+        cascade="all, delete-orphan",
+    )
+
+    decryption_jobs = relationship(
+        "DecryptionJob",
+        back_populates="sample",
         cascade="all, delete-orphan",
     )
 

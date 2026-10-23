@@ -6,11 +6,20 @@ from app.database.database import Base, engine
 # Import models so SQLAlchemy registers them before create_all()
 from app.models.sample import Sample
 from app.models.analysis import Analysis
+from app.models.sandbox_job import SandboxJob
+from app.models.decryption_job import DecryptionJob
 
 # Import API routers
 from app.api.upload import router as upload_router
 from app.api.sample import router as sample_router
 from app.api.delete import router as delete_router
+from app.api.recovery import router as recovery_router
+
+from app.api.analysis import router as analysis_router
+from app.api.decrypt import router as decryption_router
+from app.sandbox.router import router as sandbox_router
+
+
 
 
 # ---------------------------------------------------------
@@ -55,6 +64,10 @@ app.add_middleware(
 app.include_router(upload_router)
 app.include_router(sample_router)
 app.include_router(delete_router)
+app.include_router(recovery_router)
+app.include_router(analysis_router)
+app.include_router(decryption_router)
+app.include_router(sandbox_router)
 
 
 # ---------------------------------------------------------

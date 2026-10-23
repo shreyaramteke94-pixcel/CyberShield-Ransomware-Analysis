@@ -1,17 +1,30 @@
 from pathlib import Path
+
 from datetime import datetime, timezone
 
 import math
+
 import mimetypes
 
 from sqlalchemy.orm import Session
 
 from app.repositories.analysis_repository import AnalysisRepository
+
 from app.utils.hash import calculate_sha256
+
 from app.utils.pe_parser import PEParser
+
 from app.utils.yara_scanner import YaraScanner
+
 from app.utils.string_extractor import StringExtractor
+
 from app.utils.risk_scoring import RiskScoringService
+
+from app.services.decryption_service import DecryptionService
+
+from app.services.ransomware_identification_service import (
+    RansomwareIdentificationService,
+)
 
 
 class AnalysisServices:
@@ -38,6 +51,7 @@ class AnalysisServices:
             frequency[byte] += 1
 
         entropy = 0.0
+
         length = len(data)
 
         for count in frequency:
@@ -52,23 +66,16 @@ class AnalysisServices:
         db: Session,
         sample_id: str,
         file_path: Path,
+        original_filename: str | None = None,
     ) -> dict:
         """
         Perform complete static analysis and save the results.
         """
 
-        # ---------------------------------------------------------
-        # Check file
-        # ---------------------------------------------------------
-
         if not file_path.exists():
             raise FileNotFoundError(
                 f"{file_path} does not exist."
             )
-
-        # ---------------------------------------------------------
-        # Basic file information
-        # ---------------------------------------------------------
 
         stat = file_path.stat()
 
@@ -87,25 +94,13 @@ class AnalysisServices:
             or "application/octet-stream"
         )
 
-        # ---------------------------------------------------------
-        # SHA-256
-        # ---------------------------------------------------------
-
         sha256 = calculate_sha256(
             file_path
         )
 
-        # ---------------------------------------------------------
-        # Entropy
-        # ---------------------------------------------------------
-
         entropy = AnalysisServices.calculate_entropy(
             file_path
         )
-
-        # ---------------------------------------------------------
-        # PE Analysis
-        # ---------------------------------------------------------
 
         pe_analysis = None
 
@@ -122,20 +117,12 @@ class AnalysisServices:
             except Exception:
                 pe_analysis = None
 
-        # ---------------------------------------------------------
-        # YARA Scan
-        # ---------------------------------------------------------
-
         try:
             yara_matches = YaraScanner.scan(
                 file_path
             )
         except Exception:
             yara_matches = []
-
-        # ---------------------------------------------------------
-        # String Extraction
-        # ---------------------------------------------------------
 
         try:
             all_strings = StringExtractor.extract(
@@ -150,10 +137,6 @@ class AnalysisServices:
 
         except Exception:
             suspicious_strings = []
-
-        # ---------------------------------------------------------
-        # Risk Scoring
-        # ---------------------------------------------------------
 
         risk_result = (
             RiskScoringService.calculate_score(
@@ -179,9 +162,31 @@ class AnalysisServices:
             [],
         )
 
-        # ---------------------------------------------------------
-        # Save Analysis
-        # ---------------------------------------------------------
+        identification_result = (
+            RansomwareIdentificationService.identify(
+                yara_matches=yara_matches,
+                suspicious_strings=suspicious_strings,
+                pe_analysis=pe_analysis,
+                risk_score=risk_score,
+                severity=severity,
+            )
+        )
+
+        ransomware_family = identification_result.get(
+            "ransomware_family"
+        )
+
+        cipher_algorithm = identification_result.get(
+            "cipher_algorithm"
+        )
+
+        decryption_result = (
+            DecryptionService.evaluate(
+                ransomware_family=ransomware_family,
+                cipher_algorithm=cipher_algorithm,
+                threat_level=severity,
+            )
+        )
 
         existing = (
             AnalysisRepository.get_by_sample_id(
@@ -191,7 +196,6 @@ class AnalysisServices:
         )
 
         if existing:
-
             AnalysisRepository.update(
                 db=db,
                 analysis=existing,
@@ -205,7 +209,6 @@ class AnalysisServices:
             )
 
         else:
-
             AnalysisRepository.create(
                 db=db,
                 sample_id=sample_id,
@@ -218,42 +221,26 @@ class AnalysisServices:
                 severity=severity,
             )
 
-        # ---------------------------------------------------------
-        # Return Complete Analysis
-        # ---------------------------------------------------------
-
         return {
-            "filename": file_path.name,
-
+            "filename": original_filename or file_path.name,
             "extension": extension,
-
             "mime_type": mime_type,
-
             "file_size": stat.st_size,
-
             "sha256": sha256,
-
-            "entropy": entropy,
-
             "created_at": datetime.fromtimestamp(
-                stat.st_ctime,
+                getattr(stat, "st_birthtime", None) or getattr(stat, "st_ctime", stat.st_mtime),
                 tz=timezone.utc,
             ).isoformat(),
-
             "modified_at": datetime.fromtimestamp(
                 stat.st_mtime,
                 tz=timezone.utc,
             ).isoformat(),
-
             "pe_analysis": pe_analysis,
-
             "yara_matches": yara_matches,
-
             "suspicious_strings": suspicious_strings,
-
             "risk_score": risk_score,
-
             "severity": severity,
-
             "reasons": risk_reasons,
+            "ransomware_identification": identification_result,
+            "decryption": decryption_result,
         }

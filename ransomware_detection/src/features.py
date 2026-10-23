@@ -7,8 +7,8 @@ def add_threat_intelligence_features(
         threat_score
 ):
     features[
-        "threat _intelligence_score"
-    ] =threat_score
+        "threat_intelligence_score"
+    ] = threat_score
     return features    
 
 
@@ -16,7 +16,7 @@ def add_threat_intelligence_features(
 def extract_features(
     file_path,
     yara_matches,
-    entropy
+    entropy=0.0
 ):
 
     file_size = os.path.getsize(

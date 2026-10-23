@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { SampleAnalysis } from '../types';
+import React, { useState, useEffect } from 'react';
+import { SampleAnalysis, SandboxDetectorResponse, SandboxJobResponse, EligibilityResult } from '../types';
 import { 
   ShieldAlert, 
   ShieldCheck, 
@@ -17,8 +17,24 @@ import {
   Check, 
   Layers, 
   Zap,
-  Terminal
+  Terminal,
+  Play,
+  RotateCw,
+  Info,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  ShieldX,
+  FlaskConical
 } from 'lucide-react';
+import { 
+  fetchSandboxStatus, 
+  submitSandboxJob, 
+  fetchSandboxJob, 
+  fetchSandboxJobs 
+} from '../services/sandboxApi';
+import { fetchRecoveryEligibility } from '../services/recoveryApi';
 
 interface AnalysisResultsViewProps {
   sample: SampleAnalysis;
@@ -27,6 +43,7 @@ interface AnalysisResultsViewProps {
   onOpenDecryptor: (sample: SampleAnalysis) => void;
   onViewReport: (sample: SampleAnalysis) => void;
   onNavigate: (tab: string) => void;
+  onUpdateSample?: (sample: SampleAnalysis) => void;
 }
 
 export const AnalysisResultsView: React.FC<AnalysisResultsViewProps> = ({
@@ -35,9 +52,148 @@ export const AnalysisResultsView: React.FC<AnalysisResultsViewProps> = ({
   onSelectSample,
   onOpenDecryptor,
   onViewReport,
+  onUpdateSample,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'static' | 'dynamic' | 'crypto' | 'ml' | 'mitre' | 'iocs'>('overview');
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
+
+  // Sandbox API State
+  const [sandboxStatus, setSandboxStatus] = useState<SandboxDetectorResponse | null>(null);
+  const [loadingStatus, setLoadingStatus] = useState<boolean>(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+
+  const [activeJob, setActiveJob] = useState<SandboxJobResponse | null>(sample.sandboxJob || null);
+  const [isSubmittingJob, setIsSubmittingJob] = useState<boolean>(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const [optInConfirmed, setOptInConfirmed] = useState<boolean>(false);
+  const [selectedTimeout, setSelectedTimeout] = useState<number>(60);
+
+  // Recovery Eligibility API State
+  const [eligibility, setEligibility] = useState<EligibilityResult | null>(null);
+  const [eligibilityLoading, setEligibilityLoading] = useState<boolean>(false);
+  const [eligibilityError, setEligibilityError] = useState<string | null>(null);
+
+  // Load sandbox environment status and existing jobs on tab activation or sample change
+  useEffect(() => {
+    let isMounted = true;
+    setActiveJob(sample.sandboxJob || null);
+    setSubmitError(null);
+
+    if (activeSubTab === 'dynamic') {
+      setLoadingStatus(true);
+      setStatusError(null);
+
+      fetchSandboxStatus()
+        .then((data) => {
+          if (isMounted) {
+            setSandboxStatus(data);
+            setLoadingStatus(false);
+          }
+        })
+        .catch((err) => {
+          if (isMounted) {
+            setStatusError(err instanceof Error ? err.message : 'Failed to query sandbox status.');
+            setLoadingStatus(false);
+          }
+        });
+
+      fetchSandboxJobs()
+        .then((jobs) => {
+          if (isMounted && jobs && jobs.length > 0) {
+            const match = jobs.find((j) => j.sample_id === sample.id);
+            if (match) {
+              setActiveJob(match);
+              if (onUpdateSample && !sample.sandboxJob) {
+                onUpdateSample({ ...sample, sandboxJob: match });
+              }
+            }
+          }
+        })
+        .catch(() => {
+          // non-critical if jobs list fails
+        });
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeSubTab, sample.id]);
+
+  // Responsible polling when a job is QUEUED or RUNNING; stops on terminal states
+  useEffect(() => {
+    if (!activeJob) return;
+    if (activeJob.status !== 'QUEUED' && activeJob.status !== 'RUNNING') {
+      return;
+    }
+
+    const intervalId = setInterval(async () => {
+      try {
+        const updated = await fetchSandboxJob(activeJob.job_id);
+        setActiveJob(updated);
+        if (onUpdateSample) {
+          onUpdateSample({ ...sample, sandboxJob: updated });
+        }
+      } catch (err) {
+        console.error('Failed to poll sandbox job:', err);
+      }
+    }, 2000);
+
+    return () => clearInterval(intervalId);
+  }, [activeJob?.job_id, activeJob?.status]);
+
+  // Check real ransomware recovery eligibility for the current sample
+  useEffect(() => {
+    let isMounted = true;
+    setEligibility(null);
+    setEligibilityLoading(true);
+    setEligibilityError(null);
+
+    fetchRecoveryEligibility(sample.id)
+      .then((data) => {
+        if (isMounted) {
+          setEligibility(data);
+          setEligibilityLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          setEligibilityError(err instanceof Error ? err.message : 'Eligibility check unavailable.');
+          setEligibilityLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [sample.id]);
+
+  const handleSubmitDynamicAnalysis = async () => {
+    if (!optInConfirmed) {
+      setSubmitError('Explicit authorization checkbox is required before dynamic execution can proceed.');
+      return;
+    }
+
+    setIsSubmittingJob(true);
+    setSubmitError(null);
+
+    try {
+      const job = await submitSandboxJob({
+        sample_id: sample.id,
+        confirm_dynamic_execution: true,
+        timeout_seconds: selectedTimeout,
+      });
+
+      setActiveJob(job);
+      if (onUpdateSample) {
+        onUpdateSample({ ...sample, sandboxJob: job });
+      }
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Dynamic analysis request failed.');
+    } finally {
+      setIsSubmittingJob(false);
+    }
+  };
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -82,16 +238,15 @@ export const AnalysisResultsView: React.FC<AnalysisResultsViewProps> = ({
             ))}
           </select>
 
-          {sample.decryptionStatus === 'DECRYPTABLE' && (
-            <button
-              id="results-launch-decryptor-btn"
-              onClick={() => onOpenDecryptor(sample)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#3B82F6] hover:bg-blue-600 text-white font-medium text-xs transition"
-            >
-              <Key className="w-3.5 h-3.5" />
-              <span>Decrypt</span>
-            </button>
-          )}
+          <button
+            id="results-launch-demo-workbench-btn"
+            onClick={() => onOpenDecryptor(sample)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#16243A] hover:bg-[#24344D] border border-[#24344D] text-[#CBD5E1] hover:text-[#F8FAFC] font-medium text-xs transition"
+            title="Open AES-256-GCM Demonstration Workbench"
+          >
+            <FlaskConical className="w-3.5 h-3.5 text-[#A855F7]" />
+            <span>Demo Workbench</span>
+          </button>
 
           <button
             id="results-view-report-btn"
@@ -151,22 +306,40 @@ export const AnalysisResultsView: React.FC<AnalysisResultsViewProps> = ({
 
         {/* Decryption Status */}
         <div className="p-4 rounded-xl bg-[#111C2E] border border-[#24344D] space-y-1">
-          <span className="text-[11px] text-[#94A3B8] uppercase font-medium">Decryption</span>
+          <span className="text-[11px] text-[#94A3B8] uppercase font-medium">Decryption Recovery</span>
           <div className="flex items-center gap-1.5 pt-0.5">
-            {sample.decryptionStatus === 'DECRYPTABLE' ? (
+            {eligibilityLoading ? (
+              <span className="text-base font-bold text-[#94A3B8] flex items-center gap-1">
+                <RotateCw className="w-3.5 h-3.5 animate-spin text-[#3B82F6]" /> Checking...
+              </span>
+            ) : eligibility?.recovery_status === 'READY_FOR_RECOVERY' ? (
               <span className="text-base font-bold text-[#22C55E] flex items-center gap-1">
                 <Unlock className="w-4 h-4" /> Feasible
               </span>
-            ) : sample.decryptionStatus === 'UNSUPPORTED' ? (
-              <span className="text-base font-bold text-[#94A3B8] flex items-center gap-1">
-                <Lock className="w-4 h-4" /> Unknown
+            ) : eligibility?.recovery_status === 'FAMILY_UNKNOWN' ? (
+              <span className="text-base font-bold text-[#F59E0B] flex items-center gap-1">
+                <AlertTriangle className="w-4 h-4" /> Inconclusive
+              </span>
+            ) : isSafe ? (
+              <span className="text-base font-bold text-[#22C55E] flex items-center gap-1">
+                <ShieldCheck className="w-4 h-4" /> Clean
               </span>
             ) : (
-              <span className="text-base font-bold text-[#22C55E]">Clean</span>
+              <span className="text-base font-bold text-[#94A3B8] flex items-center gap-1">
+                <Lock className="w-4 h-4" /> Unavailable
+              </span>
             )}
           </div>
-          <span className="text-[11px] text-[#94A3B8] block">
-            {sample.decryptionSuccessRate ? `${sample.decryptionSuccessRate}% rate` : 'N/A'}
+          <span className="text-[11px] text-[#94A3B8] block truncate">
+            {eligibilityLoading
+              ? 'Querying decryptor registry...'
+              : eligibility
+              ? eligibility.compatible_adapters.length > 0
+                ? `${eligibility.compatible_adapters.length} adapter(s) found`
+                : 'No decryptor available'
+              : isSafe
+              ? 'No recovery needed'
+              : 'Decryption unavailable'}
           </span>
         </div>
       </div>
@@ -409,79 +582,378 @@ export const AnalysisResultsView: React.FC<AnalysisResultsViewProps> = ({
         </div>
       )}
 
-      {/* Tab 3: Dynamic */}
+      {/* Tab 3: Dynamic - Real Sandbox Dynamic Analysis */}
       {activeSubTab === 'dynamic' && (
-        <div className="space-y-5">
-          <div className="p-5 rounded-xl bg-[#111C2E] border border-[#24344D] space-y-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
-              Execution Process Tree ({sample.dynamicAnalysis.sandboxOS})
-            </h2>
+        <div className="space-y-6">
+          {/* Section 1: Environment Readiness & Host Containment Posture */}
+          <div className="p-5 rounded-xl bg-[#111C2E] border border-[#24344D] space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
+                  Container Sandbox Environment Posture
+                </h2>
+                <p className="text-xs text-[#94A3B8] mt-0.5">
+                  Probes host for Docker runtime, daemon reachability, and verified sandbox image.
+                </p>
+              </div>
 
-            <div className="space-y-2 font-mono text-xs">
-              {sample.dynamicAnalysis.processTree.map((p, idx) => (
-                <div key={idx} className="p-3 rounded-lg bg-[#0B1220] border border-[#24344D] flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-2.5">
-                    <span className="px-1.5 py-0.5 rounded bg-[#16243A] text-[#3B82F6] text-[10px]">
-                      PID: {p.pid}
-                    </span>
-                    <div>
-                      <div className="font-medium text-[#F8FAFC]">{p.name}</div>
-                      <div className="text-[#94A3B8] text-[11px] mt-0.5">{p.action}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-right">
-                    <span className="text-[10px] text-[#94A3B8]">{p.timestamp}</span>
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                      p.status === 'MALICIOUS' ? 'bg-[#EF4444]/15 text-[#EF4444]' :
-                      p.status === 'WARNING' ? 'bg-[#F59E0B]/15 text-[#F59E0B]' :
-                      'text-[#94A3B8]'
-                    }`}>
-                      {p.status}
-                    </span>
+              {loadingStatus ? (
+                <div className="flex items-center gap-2 text-xs text-[#94A3B8]">
+                  <RotateCw className="w-3.5 h-3.5 animate-spin text-[#3B82F6]" />
+                  <span>Probing container runtime...</span>
+                </div>
+              ) : sandboxStatus ? (
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                      sandboxStatus.sandbox_status === 'AVAILABLE'
+                        ? 'bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30'
+                        : 'bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/30'
+                    }`}
+                  >
+                    {sandboxStatus.sandbox_status === 'AVAILABLE' ? (
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    ) : (
+                      <XCircle className="w-3.5 h-3.5" />
+                    )}
+                    <span>SANDBOX: {sandboxStatus.sandbox_status}</span>
+                  </span>
+                </div>
+              ) : null}
+            </div>
+
+            {statusError && (
+              <div className="p-3.5 rounded-lg bg-red-950/40 border border-red-800/60 text-xs text-red-200 flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-semibold text-red-300">Sandbox Service Connection Error</div>
+                  <div className="mt-0.5">{statusError}</div>
+                  <div className="mt-1 text-[11px] text-red-300/80">
+                    Ensure the CyberShield FastAPI backend is running at http://localhost:8000.
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
+
+            {sandboxStatus && (
+              <div className="space-y-3 pt-1">
+                {sandboxStatus.sandbox_status === 'UNAVAILABLE' ? (
+                  <div className="p-4 rounded-lg bg-[#16243A] border border-[#F59E0B]/30 space-y-2.5 text-xs">
+                    <div className="flex items-center gap-2 text-[#F59E0B] font-semibold">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      <span>Dynamic Container Detonation Unavailable on This Host</span>
+                    </div>
+
+                    <div className="space-y-1 text-[#CBD5E1] pl-6 font-mono text-[11px]">
+                      {sandboxStatus.diagnostics.map((diag, i) => (
+                        <div key={i} className="flex items-start gap-1.5">
+                          <span className="text-[#F59E0B]">•</span>
+                          <span>{diag}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {sandboxStatus.prerequisites.length > 0 && (
+                      <div className="pt-2 border-t border-[#24344D]/60 pl-6 space-y-1">
+                        <div className="text-[11px] uppercase tracking-wider text-[#94A3B8] font-semibold">
+                          Prerequisites to Enable Dynamic Detonation:
+                        </div>
+                        {sandboxStatus.prerequisites.map((prereq, i) => (
+                          <div key={i} className="text-[#94A3B8] text-[11px] font-mono">
+                            → {prereq}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="p-2.5 rounded bg-[#0B1220] border border-[#24344D] text-[#94A3B8] text-[11px] flex items-start gap-2">
+                      <ShieldX className="w-4 h-4 text-[#EF4444] shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="text-[#F8FAFC]">Host Subprocess Fallback Strictly Prohibited:</strong>{' '}
+                        Untrusted binaries are never executed directly on the host machine. Without a verified container sandbox, dynamic execution is safely refused.
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-lg bg-[#16243A] border border-[#22C55E]/30 text-xs space-y-1">
+                    <div className="flex items-center gap-2 text-[#22C55E] font-semibold">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Isolated Docker Sandbox Environment Ready</span>
+                    </div>
+                    <div className="text-[#94A3B8] text-[11px] font-mono">
+                      Image: {sandboxStatus.sandbox_image}
+                    </div>
+                  </div>
+                )}
+
+                {/* Defensive Security Boundaries Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 font-mono text-[11px]">
+                  <div className="p-2.5 rounded bg-[#0B1220] border border-[#24344D]">
+                    <div className="text-[#94A3B8] text-[10px] uppercase font-sans">Network Boundary</div>
+                    <div className="text-[#22C55E] font-medium mt-0.5">--network none</div>
+                    <div className="text-[#94A3B8] text-[10px] mt-0.5">Air-gapped (Zero C2)</div>
+                  </div>
+                  <div className="p-2.5 rounded bg-[#0B1220] border border-[#24344D]">
+                    <div className="text-[#94A3B8] text-[10px] uppercase font-sans">Execution Identity</div>
+                    <div className="text-[#3B82F6] font-medium mt-0.5">--user 1000:1000</div>
+                    <div className="text-[#94A3B8] text-[10px] mt-0.5">Unprivileged non-root</div>
+                  </div>
+                  <div className="p-2.5 rounded bg-[#0B1220] border border-[#24344D]">
+                    <div className="text-[#94A3B8] text-[10px] uppercase font-sans">Storage Isolation</div>
+                    <div className="text-[#F59E0B] font-medium mt-0.5">--read-only rootfs</div>
+                    <div className="text-[#94A3B8] text-[10px] mt-0.5">Sample mount :ro</div>
+                  </div>
+                  <div className="p-2.5 rounded bg-[#0B1220] border border-[#24344D]">
+                    <div className="text-[#94A3B8] text-[10px] uppercase font-sans">Resource Envelope</div>
+                    <div className="text-[#A855F7] font-medium mt-0.5">1.0 CPU / 512MB</div>
+                    <div className="text-[#94A3B8] text-[10px] mt-0.5">64 PIDs / --rm cleanup</div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <div className="p-5 rounded-xl bg-[#111C2E] border border-[#24344D] space-y-3">
+          {/* Section 2: Explicit Opt-in Dynamic Detonation Trigger */}
+          <div className="p-5 rounded-xl bg-[#111C2E] border border-[#24344D] space-y-4">
+            <div className="flex items-center justify-between">
               <h2 className="text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
-                C2 Network Telemetry
+                Dynamic Detonation Authorization
               </h2>
-              <div className="space-y-2 font-mono text-xs">
-                {sample.dynamicAnalysis.networkBeacons.length === 0 ? (
-                  <div className="text-[#94A3B8]/60 italic">No external network beacons detected.</div>
-                ) : (
-                  sample.dynamicAnalysis.networkBeacons.map((b, i) => (
-                    <div key={i} className="p-2.5 rounded bg-[#0B1220] border border-[#24344D] text-xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[#EF4444] font-medium">{b.ip}:{b.port}</span>
-                        <span className="text-[10px] text-[#94A3B8]">{b.country} • {b.protocol}</span>
-                      </div>
-                      <div className="text-[#F8FAFC] text-[11px]">{b.domain}</div>
-                      <div className="text-[#3B82F6] text-[10px]">{b.action}</div>
-                    </div>
-                  ))
-                )}
+              <span className="text-[11px] font-mono text-[#94A3B8]">
+                Target: {sample.id}
+              </span>
+            </div>
+
+            {/* Operational Warning Alert */}
+            <div className="p-3.5 rounded-lg bg-[#0B1220] border border-[#EF4444]/40 text-xs space-y-1.5">
+              <div className="flex items-center gap-2 text-[#EF4444] font-semibold">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>Operational Security Notice</span>
+              </div>
+              <p className="text-[#CBD5E1] text-[11px] leading-relaxed">
+                Dynamic detonation triggers actual binary execution within the container sandbox to record runtime behavior (process spawning, extortion notes, encryption speed). Dynamic execution carries inherent operational risk and is strictly opt-in. Host subprocess execution is prohibited.
+              </p>
+            </div>
+
+            {submitError && (
+              <div className="p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-xs text-red-200 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <span>{submitError}</span>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
+              {/* Mandatory Checkbox */}
+              <label className="flex items-start gap-2.5 cursor-pointer text-xs select-none">
+                <input
+                  type="checkbox"
+                  checked={optInConfirmed}
+                  onChange={(e) => setOptInConfirmed(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-[#24344D] bg-[#16243A] text-[#3B82F6] focus:ring-[#3B82F6] focus:ring-offset-0 cursor-pointer"
+                />
+                <span className="text-[#F8FAFC]">
+                  I confirm authorization to detonate sample <span className="font-mono text-[#3B82F6]">{sample.fileName}</span> within the isolated sandbox container.
+                </span>
+              </label>
+
+              {/* Timeout & Trigger Button */}
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-1.5 text-xs text-[#94A3B8]">
+                  <Clock className="w-3.5 h-3.5" />
+                  <select
+                    value={selectedTimeout}
+                    onChange={(e) => setSelectedTimeout(Number(e.target.value))}
+                    className="bg-[#16243A] border border-[#24344D] text-[#F8FAFC] text-xs rounded-lg px-2.5 py-1.5 outline-none cursor-pointer"
+                  >
+                    <option value={30}>30s Timeout</option>
+                    <option value={60}>60s (Default)</option>
+                    <option value={120}>120s Extended</option>
+                  </select>
+                </div>
+
+                <button
+                  id="btn-detonate-sample"
+                  onClick={handleSubmitDynamicAnalysis}
+                  disabled={!optInConfirmed || isSubmittingJob || activeJob?.status === 'RUNNING'}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition ${
+                    !optInConfirmed || isSubmittingJob || activeJob?.status === 'RUNNING'
+                      ? 'bg-[#16243A] text-[#94A3B8]/60 border border-[#24344D] cursor-not-allowed'
+                      : 'bg-[#EF4444] hover:bg-red-600 text-white shadow-lg shadow-red-900/20 cursor-pointer'
+                  }`}
+                >
+                  {isSubmittingJob ? (
+                    <>
+                      <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Submitting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>Detonate Sample in Sandbox</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
-
-            <div className="p-5 rounded-xl bg-[#111C2E] border border-[#24344D] space-y-3">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
-                Extracted Extortion Note
-              </h2>
-              {sample.dynamicAnalysis.ransomNoteFound ? (
-                <div className="p-3 rounded-lg bg-[#0B1220] border border-[#EF4444]/30 font-mono text-xs text-[#F8FAFC] whitespace-pre-wrap max-h-48 overflow-y-auto">
-                  {sample.dynamicAnalysis.ransomNoteContent}
-                </div>
-              ) : (
-                <div className="text-[#94A3B8]/60 text-xs font-mono italic">
-                  No ransom notes dropped.
-                </div>
-              )}
-            </div>
           </div>
+
+          {/* Section 3: Live Job Telemetry & Execution Lifecycle */}
+          {activeJob ? (
+            <div className="space-y-5">
+              {/* Job Metadata & State Banner */}
+              <div className="p-5 rounded-xl bg-[#111C2E] border border-[#24344D] space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#24344D] pb-3">
+                  <div className="space-y-0.5">
+                    <div className="text-[11px] font-mono text-[#94A3B8] uppercase">
+                      Sandbox Job: {activeJob.job_id}
+                    </div>
+                    <div className="text-xs font-semibold text-[#F8FAFC]">
+                      Sample: {activeJob.filename} ({activeJob.sample_id})
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {activeJob.status === 'RUNNING' && (
+                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#A855F7]/15 text-[#A855F7] border border-[#A855F7]/30">
+                        <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>RUNNING (Polling 2s)</span>
+                      </span>
+                    )}
+                    {activeJob.status === 'COMPLETED' && (
+                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>COMPLETED</span>
+                      </span>
+                    )}
+                    {activeJob.status === 'UNAVAILABLE' && (
+                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        <span>UNAVAILABLE</span>
+                      </span>
+                    )}
+                    {activeJob.status === 'TIMED_OUT' && (
+                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>TIMED_OUT</span>
+                      </span>
+                    )}
+                    {activeJob.status === 'FAILED' && (
+                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/30">
+                        <XCircle className="w-3.5 h-3.5" />
+                        <span>FAILED</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="text-xs text-[#CBD5E1] font-mono leading-relaxed">
+                  {activeJob.execution_summary}
+                </div>
+
+                {activeJob.error_message && (
+                  <div className="p-3 rounded-lg bg-[#0B1220] border border-[#F59E0B]/40 text-xs space-y-1 font-mono text-[#F59E0B]">
+                    <div>{activeJob.error_message}</div>
+                    {activeJob.security_verifications?.host_execution_prevented && (
+                      <div className="text-[11px] text-[#22C55E] pt-1 border-t border-[#24344D]/60">
+                        ✓ Safety Assertion: Untrusted binary was NOT executed on the host.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-4 text-[11px] font-mono text-[#94A3B8] pt-1">
+                  <div>Submitted: {activeJob.created_at}</div>
+                  {activeJob.completed_at && <div>Finished: {activeJob.completed_at}</div>}
+                  <div>Operations: {activeJob.operations_run.join(' → ') || 'None'}</div>
+                </div>
+              </div>
+
+              {/* Observed Telemetry (Only rendered when actually collected; no mock data) */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* Process Tree Observation */}
+                <div className="p-5 rounded-xl bg-[#111C2E] border border-[#24344D] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
+                      Runtime Process Hierarchy
+                    </h2>
+                    <span className="text-[11px] font-mono text-[#94A3B8]">
+                      Observed: {activeJob.process_tree?.length || 0}
+                    </span>
+                  </div>
+
+                  {activeJob.process_tree && activeJob.process_tree.length > 0 ? (
+                    <div className="space-y-2 font-mono text-xs max-h-60 overflow-y-auto">
+                      {activeJob.process_tree.map((p, idx) => (
+                        <div key={idx} className="p-3 rounded-lg bg-[#0B1220] border border-[#24344D] flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-2">
+                            <span className="px-1.5 py-0.5 rounded bg-[#16243A] text-[#3B82F6] text-[10px]">
+                              PID: {p.pid}
+                            </span>
+                            <div>
+                              <div className="font-medium text-[#F8FAFC]">{p.name}</div>
+                              <div className="text-[#94A3B8] text-[11px] mt-0.5">{p.action}</div>
+                            </div>
+                          </div>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            p.status === 'MALICIOUS' ? 'bg-[#EF4444]/15 text-[#EF4444]' : 'text-[#94A3B8]'
+                          }`}>
+                            {p.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-6 rounded-lg bg-[#0B1220] border border-[#24344D]/60 text-center text-xs text-[#94A3B8]/70 font-mono italic">
+                      {activeJob.status === 'RUNNING'
+                        ? 'Collecting runtime process tree telemetry...'
+                        : 'No child processes observed during sandbox execution.'}
+                    </div>
+                  )}
+                </div>
+
+                {/* Network Beacons Observation */}
+                <div className="p-5 rounded-xl bg-[#111C2E] border border-[#24344D] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
+                      C2 Network Observations
+                    </h2>
+                    <span className="text-[11px] font-mono text-[#94A3B8]">
+                      Blocked: {activeJob.network_beacons?.length || 0}
+                    </span>
+                  </div>
+
+                  {activeJob.network_beacons && activeJob.network_beacons.length > 0 ? (
+                    <div className="space-y-2 font-mono text-xs max-h-60 overflow-y-auto">
+                      {activeJob.network_beacons.map((b, i) => (
+                        <div key={i} className="p-2.5 rounded bg-[#0B1220] border border-[#24344D] text-xs space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[#EF4444] font-medium">{b.ip}:{b.port}</span>
+                            <span className="text-[10px] text-[#94A3B8]">{b.protocol}</span>
+                          </div>
+                          <div className="text-[#F8FAFC] text-[11px]">{b.domain}</div>
+                          <div className="text-[#3B82F6] text-[10px]">{b.action}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-6 rounded-lg bg-[#0B1220] border border-[#24344D]/60 text-center text-xs text-[#94A3B8]/70 font-mono italic">
+                      Zero outbound network beacons observed. Air-gapped network mode verified (--network none).
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-8 rounded-xl bg-[#111C2E] border border-[#24344D] text-center space-y-2">
+              <Cpu className="w-8 h-8 text-[#94A3B8]/40 mx-auto" />
+              <div className="text-xs font-semibold text-[#F8FAFC]">
+                No Dynamic Detonation Job Submitted
+              </div>
+              <p className="text-xs text-[#94A3B8] max-w-md mx-auto">
+                Dynamic analysis is strictly opt-in and unexecuted by default. To detonate this sample in the container sandbox, review the security warning above and authorize execution.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -552,10 +1024,135 @@ export const AnalysisResultsView: React.FC<AnalysisResultsViewProps> = ({
                   onClick={() => onOpenDecryptor(sample)}
                   className="w-full py-2 rounded-lg bg-[#3B82F6] hover:bg-blue-600 text-white font-medium text-xs transition"
                 >
-                  Test in Decryption Workbench
+                  Test Candidate Key in Demo Workbench
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Real Ransomware Recovery Assessment Card */}
+          <div className="p-5 rounded-xl bg-[#111C2E] border border-[#24344D] space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#24344D] pb-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Key className="w-4 h-4 text-[#3B82F6]" />
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-[#F8FAFC]">
+                    Real Ransomware Recovery Assessment
+                  </h3>
+                </div>
+                <p className="text-[11px] text-[#94A3B8]">
+                  Evaluates sample identification against the verified decryptor adapter registry (No More Ransom / Emsisoft).
+                </p>
+              </div>
+
+              <div>
+                {eligibilityLoading ? (
+                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono bg-[#16243A] text-[#94A3B8] border border-[#24344D]">
+                    <RotateCw className="w-3 h-3 animate-spin text-[#3B82F6]" /> Checking Eligibility...
+                  </span>
+                ) : eligibility?.recovery_status === 'READY_FOR_RECOVERY' ? (
+                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono font-semibold bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> READY_FOR_RECOVERY
+                  </span>
+                ) : eligibility?.recovery_status === 'FAMILY_UNKNOWN' ? (
+                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono font-semibold bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30">
+                    <AlertTriangle className="w-3.5 h-3.5" /> FAMILY_UNKNOWN
+                  </span>
+                ) : eligibility?.recovery_status === 'DECRYPTOR_UNAVAILABLE' ? (
+                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono font-semibold bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30">
+                    <Lock className="w-3.5 h-3.5" /> DECRYPTOR_UNAVAILABLE
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono bg-[#16243A] text-[#94A3B8] border border-[#24344D]">
+                    <Info className="w-3.5 h-3.5" /> {eligibility?.recovery_status || (isSafe ? 'CLEAN_FILE' : 'UNSUPPORTED')}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Status explanation */}
+            <div className="text-xs text-[#CBD5E1] font-mono leading-relaxed bg-[#0B1220] p-3.5 rounded-lg border border-[#24344D]">
+              {eligibility?.explanation || (
+                isSafe
+                  ? 'This sample is verified clean. No ransomware decryption is applicable.'
+                  : `Identified strain "${sample.ransomwareFamily}" uses modern authenticated encryption. No verified decryptor adapter is currently available for this family.`
+              )}
+            </div>
+
+            {/* Evidence & Limitations */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs font-mono">
+              <div className="p-3.5 rounded-lg bg-[#0B1220] border border-[#24344D] space-y-2">
+                <span className="text-[11px] font-sans font-semibold uppercase tracking-wider text-[#94A3B8]">
+                  Evidence Indicators
+                </span>
+                <div className="space-y-1.5 text-[11px]">
+                  {eligibility?.evidence && eligibility.evidence.length > 0 ? (
+                    eligibility.evidence.map((ev, i) => (
+                      <div key={i} className="flex items-start gap-1.5 text-[#CBD5E1]">
+                        <span className="text-[#3B82F6] shrink-0">•</span>
+                        <span>{ev}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <>
+                      <div className="text-[#CBD5E1]">• Identified Family: {sample.ransomwareFamily}</div>
+                      <div className="text-[#CBD5E1]">• Cipher Algorithm: {sample.cryptoAnalysis.encryptionAlgorithm}</div>
+                      <div className="text-[#CBD5E1]">• Confidence Score: {sample.confidenceScore}%</div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-lg bg-[#0B1220] border border-[#24344D] space-y-2">
+                <span className="text-[11px] font-sans font-semibold uppercase tracking-wider text-[#94A3B8]">
+                  Limitations &amp; Safety Controls
+                </span>
+                <div className="space-y-1.5 text-[11px]">
+                  {eligibility?.limitations && eligibility.limitations.length > 0 ? (
+                    eligibility.limitations.map((lim, i) => (
+                      <div key={i} className="flex items-start gap-1.5 text-[#F59E0B]">
+                        <span className="shrink-0">•</span>
+                        <span>{lim}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <>
+                      <div className="flex items-start gap-1.5 text-[#F59E0B]">
+                        <span className="shrink-0">•</span>
+                        <span>Modern ransomware cannot be decrypted without threat actor private keys.</span>
+                      </div>
+                      <div className="flex items-start gap-1.5 text-[#F59E0B]">
+                        <span className="shrink-0">•</span>
+                        <span>Zero third-party decryptor binaries are automatically executed.</span>
+                      </div>
+                      <div className="flex items-start gap-1.5 text-[#22C55E]">
+                        <span className="shrink-0">•</span>
+                        <span>Original quarantined sample remains immutable and unmodified on disk.</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Separate Demo Workbench Callout */}
+            <div className="p-3.5 rounded-lg bg-[#16243A] border border-[#A855F7]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5 text-[#A855F7] font-semibold">
+                  <FlaskConical className="w-4 h-4" />
+                  <span>Controlled AES-256-GCM Demonstration Engine</span>
+                </div>
+                <p className="text-[11px] text-[#94A3B8]">
+                  Test encryption, decryption, and integrity verification on isolated test files (.csde format).
+                </p>
+              </div>
+              <button
+                onClick={() => onOpenDecryptor(sample)}
+                className="px-3 py-2 rounded-lg bg-[#A855F7]/20 hover:bg-[#A855F7]/30 border border-[#A855F7]/40 text-[#A855F7] font-medium text-xs whitespace-nowrap transition"
+              >
+                Launch Demo Workbench
+              </button>
+            </div>
           </div>
         </div>
       )}

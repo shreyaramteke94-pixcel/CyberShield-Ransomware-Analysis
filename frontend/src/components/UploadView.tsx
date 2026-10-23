@@ -289,23 +289,17 @@ const mapBackendToFrontendSample = (
       ),
     },
     dynamicAnalysis: existing?.dynamicAnalysis || {
-      behaviorScore: riskScore,
-      executionTime: '2.8s',
-      sandboxOS: 'Windows 11 Enterprise x64 (Air-Gapped Sandbox)',
-      fileModifications: [
-        `Analysis performed on submitted sample "${analysis.filename || file.name}"`,
-      ],
+      behaviorScore: 0,
+      executionTime: 'N/A (Dynamic Detonation Pending)',
+      sandboxOS: 'Container Sandbox (Air-Gapped)',
+      fileModifications: [],
       registryKeys: [],
       processTree: [],
       networkBeacons: [],
       mutexes: [],
       ransomNoteFound: false,
-      shadowCopiesDeleted: (analysis.suspicious_strings || []).some((s) =>
-        s.toLowerCase().includes('vssadmin')
-      ),
-      bootConfigAltered: (analysis.suspicious_strings || []).some((s) =>
-        s.toLowerCase().includes('bcdedit')
-      ),
+      shadowCopiesDeleted: false,
+      bootConfigAltered: false,
     },
     cryptoAnalysis: existing?.cryptoAnalysis || {
       encryptionAlgorithm: isMalicious ? 'AES-256-CBC / ChaCha20' : 'None',
@@ -556,7 +550,7 @@ export const UploadView: React.FC<UploadViewProps> = ({
 
         await new Promise((r) => setTimeout(r, 600));
         setCurrentStep(3);
-        addLog(`[DYNAMIC] Detonation sandbox inspection completed.`);
+        addLog(`[SANDBOX] Static analysis complete. Isolated dynamic detonation requires explicit submission.`);
 
         await new Promise((r) => setTimeout(r, 600));
         setCurrentStep(4);
@@ -601,9 +595,8 @@ export const UploadView: React.FC<UploadViewProps> = ({
 
       setTimeout(() => {
         setCurrentStep(3);
-        addLog(`[DYNAMIC] Spawning process under virtual API hook monitor...`);
-        addLog(`[DYNAMIC] DETECTED: Anti-Analysis check bypass`);
-        addLog(`[DYNAMIC] DETECTED: Mass WriteFile operations`);
+        addLog(`[SANDBOX] Host containment verified. Dynamic analysis requires isolated container submission.`);
+        addLog(`[STATIC] Static heuristics: High packing and anti-analysis strings flagged.`);
       }, 2000);
 
       setTimeout(() => {

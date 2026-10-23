@@ -101,6 +101,9 @@ export interface SampleAnalysis {
     bootConfigAltered: boolean;
   };
 
+  // Real Sandbox Job State
+  sandboxJob?: SandboxJobResponse;
+
   // Crypto Analysis
   cryptoAnalysis: {
     encryptionAlgorithm: string;
@@ -169,3 +172,109 @@ export interface AdminStats {
   avgAnalysisTime: string;
   storageUsed: string;
 }
+
+// -------------------------------------------------------------
+// Decryption & Recovery Subsystem Types
+// -------------------------------------------------------------
+
+export interface DecryptorInfo {
+  adapter_id: string;
+  display_name: string;
+  source: string;
+  supported_families: string[];
+  supported_variants: string[];
+  status: 'AVAILABLE' | 'UNAVAILABLE' | 'REQUIRES_PREREQUISITES';
+  prerequisites: string[];
+  limitations: string[];
+  can_run_automatically: boolean;
+  requires_explicit_approval: boolean;
+}
+
+export interface DemoFileInfo {
+  filename: string;
+  size_bytes: number;
+  description: string;
+}
+
+export interface DemoJobStatus {
+  job_id: string;
+  job_type: 'DEMO' | 'REAL';
+  status:
+    | 'READY_FOR_RECOVERY'
+    | 'RECOVERY_IN_PROGRESS'
+    | 'RECOVERY_SUCCEEDED'
+    | 'RECOVERY_PARTIAL'
+    | 'RECOVERY_FAILED'
+    | 'OUTPUT_VERIFICATION_FAILED';
+  input_file: string | null;
+  output_path: string | null;
+  plaintext_sha256: string | null;
+  output_sha256: string | null;
+  verified: boolean;
+  error_message: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface EligibilityResult {
+  sample_id: string;
+  filename: string;
+  recovery_status:
+    | 'ANALYSIS_REQUIRED'
+    | 'FAMILY_UNKNOWN'
+    | 'VARIANT_UNCONFIRMED'
+    | 'DECRYPTOR_UNAVAILABLE'
+    | 'UNSUPPORTED_VARIANT'
+    | 'KEY_REQUIRED'
+    | 'READY_FOR_RECOVERY';
+  ransomware_family?: string | null;
+  identification_confidence?: number | null;
+  compatible_adapters: string[];
+  evidence: string[];
+  limitations: string[];
+  explanation: string;
+}
+
+export type SandboxExecutionStatus =
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'TIMED_OUT'
+  | 'UNAVAILABLE';
+
+export interface SandboxDetectorResponse {
+  docker_cli_available: boolean;
+  docker_daemon_reachable: boolean;
+  sandbox_image_available: boolean;
+  dynamic_analysis_ready: boolean;
+  sandbox_status: 'AVAILABLE' | 'UNAVAILABLE';
+  sandbox_image: string;
+  security_policies: Record<string, any>;
+  diagnostics: string[];
+  prerequisites: string[];
+  disclaimer: string;
+}
+
+export interface SandboxJobRequest {
+  sample_id: string;
+  confirm_dynamic_execution: boolean;
+  timeout_seconds?: number;
+}
+
+export interface SandboxJobResponse {
+  job_id: string;
+  sample_id: string;
+  filename: string;
+  status: SandboxExecutionStatus;
+  created_at: string;
+  completed_at?: string | null;
+  operations_run: string[];
+  error_message?: string | null;
+  process_tree: ProcessActivity[];
+  network_beacons: NetworkBeacon[];
+  runtime_events: Array<Record<string, any>>;
+  security_verifications: Record<string, boolean>;
+  execution_summary: string;
+}
+

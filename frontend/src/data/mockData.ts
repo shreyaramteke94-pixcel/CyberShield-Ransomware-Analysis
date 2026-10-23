@@ -85,38 +85,17 @@ export const INITIAL_SAMPLES: SampleAnalysis[] = [
       antiVMDetection: true
     },
     dynamicAnalysis: {
-      behaviorScore: 98,
-      executionTime: '3.8s',
-      sandboxOS: 'Windows 11 Enterprise x64 (Sandbox Isolated)',
-      fileModifications: [
-        'Modified 4,192 files under C:\\Users\\Administrator\\Documents',
-        'Modified 2,340 files under C:\\DataShare\\Financials',
-        'Appended extension ".HLJkNskO6" to encrypted files',
-        'Dropped "README_HLJkNskO6.txt" in all processed directories',
-        'Deleted 12 Volume Shadow Copies'
-      ],
-      registryKeys: [
-        'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\LockBit3 = "C:\\Windows\\Temp\\LB3.exe"',
-        'HKCU\\Control Panel\\Desktop\\Wallpaper = "C:\\Windows\\Temp\\lockbit_wall.bmp"',
-        'HKLM\\SYSTEM\\CurrentControlSet\\Services\\VSS -> Start: 4 (Disabled)'
-      ],
-      processTree: [
-        { pid: 4128, name: 'LB3_Black_payload_x64.exe', action: 'Process Spawning & Token Impersonation', status: 'MALICIOUS', timestamp: '00:00.120' },
-        { pid: 4892, name: 'cmd.exe', action: 'Spawned vssadmin / quiet shadow wipe', status: 'MALICIOUS', timestamp: '00:00.410' },
-        { pid: 5120, name: 'vssadmin.exe', action: 'Delete Shadows /All /Quiet', status: 'MALICIOUS', timestamp: '00:00.580' },
-        { pid: 5312, name: 'bcdedit.exe', action: 'Disable recovery and boot warnings', status: 'MALICIOUS', timestamp: '00:00.820' },
-        { pid: 4128, name: 'LB3_Black_payload_x64.exe', action: 'Cryptographic worker threads initialized (16 threads)', status: 'MALICIOUS', timestamp: '00:01.100' }
-      ],
-      networkBeacons: [
-        { ip: '185.220.101.5', domain: 'lockbitc2-relay.onion.to', port: 443, protocol: 'HTTPS / TLS', country: 'NL', action: 'Exfiltration & Key Sync' },
-        { ip: '194.26.29.112', domain: 'api-tor-gateway.cc', port: 8080, protocol: 'HTTP', country: 'RO', action: 'Command & Control Beacon' }
-      ],
-      mutexes: ['Global\\{79A02B19-E912-4BD1-92A3-1120AB89210F}', 'LockBit_3.0_Mutex_Run_1'],
-      ransomNoteFound: true,
-      ransomNotePath: 'C:\\Users\\Administrator\\Desktop\\README_HLJkNskO6.txt',
-      ransomNoteContent: '>>> LockBit 3.0 (Black) Ransomware <<<\nYour data is stolen and encrypted. If you do not pay the ransom in Bitcoin or Monero, your sensitive files will be published on our leak site.\n\nDecryption ID: HLJkNskO6-9812-4019-ABCD\nVisit our Tor portal for instant decryption verification.',
-      shadowCopiesDeleted: true,
-      bootConfigAltered: true
+      behaviorScore: 0,
+      executionTime: 'N/A (Dynamic Detonation Pending)',
+      sandboxOS: 'Container Sandbox (Air-Gapped)',
+      fileModifications: [],
+      registryKeys: [],
+      processTree: [],
+      networkBeacons: [],
+      mutexes: [],
+      ransomNoteFound: false,
+      shadowCopiesDeleted: false,
+      bootConfigAltered: false
     },
     cryptoAnalysis: {
       encryptionAlgorithm: 'AES-256-CBC + Curve25519 (ChaCha20 fallback)',
@@ -245,33 +224,17 @@ export const INITIAL_SAMPLES: SampleAnalysis[] = [
       antiVMDetection: false
     },
     dynamicAnalysis: {
-      behaviorScore: 99,
-      executionTime: '4.1s',
-      sandboxOS: 'Windows 7 SP1 x86 (Sandbox Isolated)',
-      fileModifications: [
-        'Modified 3,810 files with extension .WNCRY',
-        'Extracted embedded password-protected payload "c.wnry" using hardcoded key "WNcry@2ol7"',
-        'Created C:\\ProgramData\\WanaCrypt0r\\taskse.exe'
-      ],
-      registryKeys: [
-        'HKLM\\SOFTWARE\\WanaCrypt0r\\wd = "C:\\ProgramData\\WanaCrypt0r"',
-        'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\WanaDecryptor'
-      ],
-      processTree: [
-        { pid: 1820, name: 'mssecsvc2.0_WannaCry.exe', action: 'InternetOpenUrlA (Killswitch Check)', status: 'WARNING', timestamp: '00:00.080' },
-        { pid: 1820, name: 'mssecsvc2.0_WannaCry.exe', action: 'SMB Scanner Thread (Port 445 Sweep)', status: 'MALICIOUS', timestamp: '00:00.220' },
-        { pid: 2410, name: 'tasksche.exe', action: 'Payload Detonation & Encryption Loop', status: 'MALICIOUS', timestamp: '00:00.650' },
-        { pid: 3100, name: '@WanaDecryptor@.exe', action: 'Ransomware GUI Display Window Spawned', status: 'MALICIOUS', timestamp: '00:01.400' }
-      ],
-      networkBeacons: [
-        { ip: '198.51.100.24', domain: 'www.iuqerfsodp9ifjaposdfjhgosurijfaewrwergwea.com', port: 80, protocol: 'HTTP', country: 'US', action: 'Killswitch Probe (Simulated Sinkhole)' }
-      ],
-      mutexes: ['Global\\MsWinZonesCacheCounterMutexA'],
-      ransomNoteFound: true,
-      ransomNotePath: 'C:\\Users\\Desktop\\@Please_Read_Me@.txt',
-      ransomNoteContent: 'Ooops, your files have been encrypted!\n\nWhat Happened to My Computer?\nYour important files are encrypted. Many of your documents, photos, videos, databases and other files are no longer accessible because they have been encrypted. Maybe you are busy looking for a way to recover your files, but do not waste your time.',
-      shadowCopiesDeleted: true,
-      bootConfigAltered: true
+      behaviorScore: 0,
+      executionTime: 'N/A (Dynamic Detonation Pending)',
+      sandboxOS: 'Container Sandbox (Air-Gapped)',
+      fileModifications: [],
+      registryKeys: [],
+      processTree: [],
+      networkBeacons: [],
+      mutexes: [],
+      ransomNoteFound: false,
+      shadowCopiesDeleted: false,
+      bootConfigAltered: false
     },
     cryptoAnalysis: {
       encryptionAlgorithm: 'AES-128-CBC + RSA-2048 Hybrid',
@@ -380,27 +343,17 @@ export const INITIAL_SAMPLES: SampleAnalysis[] = [
       antiVMDetection: true
     },
     dynamicAnalysis: {
-      behaviorScore: 96,
-      executionTime: '4.0s',
-      sandboxOS: 'Windows 11 x64 Enterprise',
-      fileModifications: [
-        'Killed database and hypervisor services (SQL, Exchange, Hyper-V)',
-        'Encrypted system shares and storage volumes'
-      ],
-      registryKeys: ['HKLM\\SYSTEM\\CurrentControlSet\\Services\\EventLog -> Disabled'],
-      processTree: [
-        { pid: 6100, name: 'BlackCat_ALPHV_locker.bin', action: 'Access token validation routine', status: 'MALICIOUS', timestamp: '00:00.100' },
-        { pid: 6100, name: 'BlackCat_ALPHV_locker.bin', action: 'Async Tokio Runtime multi-thread lock initiated', status: 'MALICIOUS', timestamp: '00:00.400' }
-      ],
-      networkBeacons: [
-        { ip: '104.244.72.115', domain: 'alphv-leak-node.top', port: 443, protocol: 'TLS 1.3', country: 'CH', action: 'Telemetry Upload' }
-      ],
-      mutexes: ['ALPHV_Rust_Global_Instance_Lock'],
-      ransomNoteFound: true,
-      ransomNotePath: 'C:\\Users\\Public\\RECOVER-files.txt',
-      ransomNoteContent: '>>> ALPHV BlackCat Ransomware <<<\nAll your data is encrypted with military-grade ChaCha20 encryption. Key recovery without our private key is mathematically impossible.',
-      shadowCopiesDeleted: true,
-      bootConfigAltered: true
+      behaviorScore: 0,
+      executionTime: 'N/A (Dynamic Detonation Pending)',
+      sandboxOS: 'Container Sandbox (Air-Gapped)',
+      fileModifications: [],
+      registryKeys: [],
+      processTree: [],
+      networkBeacons: [],
+      mutexes: [],
+      ransomNoteFound: false,
+      shadowCopiesDeleted: false,
+      bootConfigAltered: false
     },
     cryptoAnalysis: {
       encryptionAlgorithm: 'ChaCha20-Poly1305 + ECC Curve25519',
@@ -494,13 +447,11 @@ export const INITIAL_SAMPLES: SampleAnalysis[] = [
     },
     dynamicAnalysis: {
       behaviorScore: 0,
-      executionTime: '2.1s',
-      sandboxOS: 'Windows 11 Pro with Microsoft Excel 365 Protected View',
-      fileModifications: ['None - File opened in sandbox Excel safely with zero writes to disk.'],
+      executionTime: 'N/A (Dynamic Detonation Pending)',
+      sandboxOS: 'Container Sandbox (Air-Gapped)',
+      fileModifications: [],
       registryKeys: [],
-      processTree: [
-        { pid: 8900, name: 'EXCEL.EXE', action: 'Document loaded into memory (Protected Sandbox View)', status: 'NEUTRAL', timestamp: '00:00.300' }
-      ],
+      processTree: [],
       networkBeacons: [],
       mutexes: [],
       ransomNoteFound: false,

@@ -64,6 +64,8 @@ class RansomwarePredictor:
         """
         Predict ransomware probability from extracted features.
         """
+        if self.model is None:
+            raise ValueError("Ransomware model is not loaded.")
 
         feature_values = [
             features["file_size"],

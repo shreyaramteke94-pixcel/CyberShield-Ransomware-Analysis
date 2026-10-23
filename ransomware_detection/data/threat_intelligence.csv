@@ -1,0 +1,6 @@
+indicator,indicator_type,threat_family,severity,confidence,source
+DEMO_HASH_001,sha256,Simulated_Ransomware,high,0.95,Internal_Test
+DEMO_HASH_002,sha256,Simulated_Ransomware,high,0.90,Internal_Test
+DEMO_HASH_003,sha256,Simulated_Malware,medium,0.80,Internal_Test
+TEST_DOMAIN_001,domain,Simulated_Threat,medium,0.75,Internal_Test
+TEST_IP_001,ip,Simulated_Threat,medium,0.70,Internal_Test

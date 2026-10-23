@@ -1,0 +1,57 @@
+CYBERSHIELD DEMO FILE — QUARTERLY BUSINESS REPORT (CONTROLLED DEMONSTRATION)
+==============================================================================
+NOTICE: This file contains SIMULATED data for the CyberShield decryption demo.
+        It does NOT contain real financial, personal, or business information.
+        It exists solely to demonstrate authenticated AES-256-GCM encryption
+        and decryption within the CyberShield platform.
+==============================================================================
+
+ACME CORPORATION — Q3 2026 BUSINESS SUMMARY
+Prepared for: CyberShield Demonstration Environment
+Classification: DEMO / NON-SENSITIVE
+
+EXECUTIVE SUMMARY
+-----------------
+This simulated quarterly report is used to demonstrate the CyberShield
+Decryption & Recovery Engine. When you encrypt this file with the CyberShield
+demo utility, it is protected with AES-256-GCM authenticated encryption.
+
+The encryption:
+  - Uses a freshly generated 256-bit key each time
+  - Includes an integrity-protecting GCM authentication tag
+  - Embeds the SHA-256 of this plaintext in the encrypted header
+  - Will REJECT any incorrect key or tampered ciphertext
+
+To recover this file, you must supply the EXACT key that was shown
+when the file was encrypted. If the key is lost, this demo file cannot
+be recovered — which illustrates why ransomware victims face genuine data
+loss when encryption keys are not in their possession.
+
+SIMULATED FINANCIAL DATA (NOT REAL)
+------------------------------------
+Revenue (Q3 2026):          $14,250,000  [SIMULATED]
+Operating Expenses:          $8,900,000  [SIMULATED]
+Net Income:                  $5,350,000  [SIMULATED]
+R&D Investment:              $2,100,000  [SIMULATED]
+Security Budget:               $850,000  [SIMULATED]
+
+SECURITY INCIDENT TIMELINE (SIMULATED)
+----------------------------------------
+Day 0  — Ransomware detected by CyberShield monitoring
+Day 1  — Forensic analysis initiated; backups verified
+Day 3  — Sample submitted to CyberShield for analysis
+Day 7  — No More Ransom compatibility check performed
+Day 14 — Restoration from clean backup completed
+
+LESSON LEARNED
+--------------
+Ransomware recovery is only possible when:
+  (a) The encryption scheme has a documented cryptographic weakness,
+  (b) Law enforcement has recovered the threat actor's keys,
+  (c) A clean backup is available, or
+  (d) The victim possesses the decryption key.
+
+CyberShield helps you check options (a) and (b). Options (c) and (d)
+depend on your organisation's backup and key management practices.
+
+END OF DEMO FILE

@@ -9,7 +9,8 @@ import {
   Settings, 
   ChevronRight,
   Cpu,
-  Database
+  Database,
+  Key
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -28,6 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'upload', label: 'Quick Scan', icon: Scan },
     { id: 'results', label: 'Analysis Results', icon: FileSearch, badge: analysesCount.toString() },
+    { id: 'decryption', label: 'Decryption Engine', icon: Key },
     { id: 'threat-intel', label: 'Threat Intelligence', icon: Radio },
     { id: 'reports', label: 'Reports', icon: FileText },
     { id: 'admin', label: 'Administration', icon: Info },

@@ -6,7 +6,6 @@ class RiskScoringService:
     Deterministic risk scoring engine for static file analysis.
 
     The service does not execute files.
-    It evaluates already-collected static analysis results.
 
     Score range:
         0-19   -> LOW
@@ -22,9 +21,6 @@ class RiskScoringService:
         suspicious_strings: list[str] | None = None,
         pe_analysis: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Calculate a deterministic risk score from static analysis results.
-        """
 
         score = 0
         reasons: list[str] = []
@@ -34,45 +30,40 @@ class RiskScoringService:
         pe_analysis = pe_analysis or {}
 
         # ---------------------------------------------------------
-        # 1. Entropy
+        # Entropy
         # ---------------------------------------------------------
 
         if entropy >= 7.8:
             score += 20
             reasons.append("Very high file entropy")
-
         elif entropy >= 7.2:
             score += 10
             reasons.append("High file entropy")
-
         elif entropy >= 6.5:
             score += 5
             reasons.append("Moderately high file entropy")
 
         # ---------------------------------------------------------
-        # 2. YARA matches
+        # YARA
         # ---------------------------------------------------------
 
         yara_count = len(yara_matches)
 
         if yara_count >= 5:
             score += 50
-            reasons.append("Multiple YARA rule matches")
-
+            reasons.append("Multiple ransomware YARA matches")
         elif yara_count >= 3:
             score += 40
-            reasons.append("Several YARA rule matches")
-
+            reasons.append("Several ransomware YARA matches")
         elif yara_count == 2:
             score += 30
-            reasons.append("Two YARA rule matches")
-
+            reasons.append("Two ransomware YARA matches")
         elif yara_count == 1:
-            score += 20
-            reasons.append("One YARA rule match")
+            score += 25
+            reasons.append("Ransomware YARA rule matched")
 
         # ---------------------------------------------------------
-        # 3. Suspicious strings
+        # Suspicious strings
         # ---------------------------------------------------------
 
         string_count = len(suspicious_strings)
@@ -80,21 +71,18 @@ class RiskScoringService:
         if string_count >= 20:
             score += 20
             reasons.append("Many suspicious strings detected")
-
         elif string_count >= 10:
             score += 15
             reasons.append("Several suspicious strings detected")
-
         elif string_count >= 5:
             score += 10
             reasons.append("Multiple suspicious strings detected")
-
         elif string_count >= 1:
             score += 3
             reasons.append("Suspicious string detected")
 
         # ---------------------------------------------------------
-        # 4. PE analysis
+        # PE analysis
         # ---------------------------------------------------------
 
         if pe_analysis:
@@ -103,17 +91,23 @@ class RiskScoringService:
 
             suspicious_imports = pe_analysis.get(
                 "suspicious_imports",
-                []
+                [],
             )
 
             sections = pe_analysis.get(
                 "sections",
-                []
+                [],
             )
 
             if suspicious_imports:
-                score += min(len(suspicious_imports) * 5, 20)
-                reasons.append("Suspicious PE imports detected")
+                score += min(
+                    len(suspicious_imports) * 5,
+                    20,
+                )
+
+                reasons.append(
+                    "Suspicious PE imports detected"
+                )
 
             if isinstance(sections, list) and len(sections) > 10:
                 score += 5
@@ -122,24 +116,24 @@ class RiskScoringService:
                 )
 
         # ---------------------------------------------------------
-        # 5. Clamp score
+        # Cap score
         # ---------------------------------------------------------
 
-        score = min(max(score, 0), 100)
+        score = min(
+            max(score, 0),
+            100,
+        )
 
         # ---------------------------------------------------------
-        # 6. Determine severity
+        # Severity
         # ---------------------------------------------------------
 
         if score >= 75:
             severity = "CRITICAL"
-
         elif score >= 50:
             severity = "HIGH"
-
         elif score >= 20:
             severity = "MEDIUM"
-
         else:
             severity = "LOW"
 

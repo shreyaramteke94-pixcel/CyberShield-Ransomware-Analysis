@@ -1,0 +1,12 @@
+record_id,client_name,region,status,note
+DEMO-001,Acme Widgets Corp,EMEA,Active,"SIMULATED — not a real client record"
+DEMO-002,Beta Systems Ltd,APAC,Pending,"SIMULATED — not a real client record"
+DEMO-003,Gamma Logistics,AMER,Active,"SIMULATED — not a real client record"
+DEMO-004,Delta Analytics,EMEA,Inactive,"SIMULATED — not a real client record"
+DEMO-005,Epsilon Medical,APAC,Active,"SIMULATED — not a real client record"
+DEMO-006,Zeta Finance Group,AMER,Active,"SIMULATED — not a real client record"
+DEMO-007,Eta Robotics Inc,EMEA,Pending,"SIMULATED — not a real client record"
+DEMO-008,Theta Cloud Services,APAC,Active,"SIMULATED — not a real client record"
+DEMO-009,Iota Cybersecurity,AMER,Active,"SIMULATED — not a real client record"
+DEMO-010,Kappa Data Corp,EMEA,Active,"SIMULATED — not a real client record"
+NOTICE,This file contains SIMULATED data only.,,,CyberShield Demo — not real client data

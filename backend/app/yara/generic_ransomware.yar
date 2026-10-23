@@ -2,14 +2,13 @@ rule Generic_Ransomware
 {
     meta:
         description = "Detects common ransomware indicators"
+        author = "CyberShield"
 
     strings:
-        $a = "vssadmin"
-        $b = "Delete Shadows"
-        $c = "CryptEncrypt"
-        $d = "Bitcoin"
-        $e = "AES"
+        $ransom_note = "YOUR FILES HAVE BEEN ENCRYPTED" ascii nocase
+        $payment = "SEND PAYMENT" ascii nocase
+        $bitcoin = "BITCOIN" ascii nocase
 
     condition:
-        any of them
+        2 of them
 }
